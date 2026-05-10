@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚓ Station Météo Marine · Voiles Filantes</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;900&family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#030c17;--p1:#061524;--p2:#09192a;--bd:#0e2840;--bdhi:#1a3d5e;
+      --cyan:#00d4ff;--cdim:#0080a0;--orange:#ff7b29;--green:#00ff88;
+      --red:#ff3b60;--yellow:#ffd600;--purple:#b06aff;--gold:#ffb020;
+      --text:#a8cce8;--muted:#324e68;--white:#e0f2ff;
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    body{background:var(--bg);color:var(--text);font-family:'Barlow Condensed',sans-serif;min-height:100vh;overflow-x:hidden}
+    body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,212,255,.011) 2px,rgba(0,212,255,.011) 4px);pointer-events:none;z-index:9999}
+
+    /* ── HEADER ── */
+    .hdr{background:linear-gradient(135deg,#06121e,#09192e,#06121e);border-bottom:1px solid var(--bd);padding:11px 22px;display:flex;align-items:center;justify-content:space-between;gap:14px;position:sticky;top:0;z-index:200;box-shadow:0 2px 20px rgba(0,0,0,.8)}
+    .hbrand{display:flex;align-items:center;gap:11px}
+    .hbrand-icon{font-size:24px;filter:drop-shadow(0 0 8px var(--cyan))}
+    .hbrand-name{font-family:'Orbitron',monospace;font-size:13px;font-weight:900;color:var(--white);letter-spacing:.14em;text-transform:uppercase;line-height:1.25}
+    .hbrand-sub{font-size:10px;color:var(--muted);letter-spacing:.07em;margin-top:1px}
+    .hgeo{text-align:center;flex:1}
+    .hgeo-c{font-family:'Share Tech Mono',monospace;font-size:12px;color:var(--cdim);letter-spacing:.06em}
+    .hgeo-n{font-size:10px;color:var(--muted);margin-top:2px}
+    .hst{display:flex;align-items:center;gap:11px}
+    .spill{display:flex;align-items:center;gap:6px;font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)}
+    .dot{width:7px;height:7px;border-radius:50%;background:var(--yellow);box-shadow:0 0 6px var(--yellow)}
+    .dot.live{background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 2s infinite}
+    .dot.err{background:var(--red);box-shadow:0 0 5px var(--red)}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+    .btn{background:transparent;border:1px solid var(--bdhi);color:var(--cyan);padding:5px 13px;font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:.05em;cursor:pointer;border-radius:2px;transition:all .2s}
+    .btn:hover{background:rgba(0,212,255,.1);border-color:var(--cyan)}
+
+    /* ── LAYOUT ── */
+    .main{max-width:1440px;margin:0 auto;padding:16px 18px 40px;display:flex;flex-direction:column;gap:16px}
+    .alert{display:none;background:rgba(255,59,96,.08);border:1px solid rgba(255,59,96,.4);border-left:3px solid var(--red);border-radius:3px;padding:10px 16px;font-size:13px;color:#ff6b87;letter-spacing:.04em;animation:ab 1.5s infinite}
+    @keyframes ab{0%,100%{opacity:1}50%{opacity:.7}}
+    .sh{font-family:'Orbitron',monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.24em;text-transform:uppercase;display:flex;align-items:center;gap:10px;margin-bottom:10px}
+    .sh::after{content:'';flex:1;height:1px;background:var(--bd)}
+    .panel{background:var(--p1);border:1px solid var(--bd);border-radius:3px;position:relative;overflow:hidden}
+    .panel::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--cdim),transparent)}
+
+    /* ══════════════════════════════
+       SECTION BATEAU VRM
+    ══════════════════════════════ */
+    .vrm-section{
+      background: linear-gradient(135deg, #07151f 0%, #0a1d2e 60%, #07151f 100%);
+      border: 1px solid #1a3d5e;
+      border-left: 3px solid var(--gold);
+      border-radius:3px;
+      position:relative;
+      overflow:hidden;
+    }
+    .vrm-section::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,var(--gold),transparent);opacity:.6}
+
+    .vrm-header{
+      padding: 12px 16px;
+      display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+      border-bottom:1px solid rgba(255,176,32,.12);
+    }
+    .vrm-title{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;color:var(--gold);letter-spacing:.15em}
+    .vrm-sub{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);margin-top:2px}
+    .vrm-status{display:flex;align-items:center;gap:8px}
+    .vrm-dot{width:7px;height:7px;border-radius:50%;background:var(--muted)}
+    .vrm-dot.live{background:var(--gold);box-shadow:0 0 8px var(--gold);animation:blink 2s infinite}
+    .vrm-dot.err{background:var(--red);box-shadow:0 0 5px var(--red)}
+    .vrm-age{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)}
+
+    /* Token setup bar */
+    .vrm-setup{padding:12px 16px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;border-bottom:1px solid rgba(255,176,32,.08)}
+    .vrm-setup label{font-size:11px;color:var(--muted);letter-spacing:.08em;white-space:nowrap}
+    .vrm-input{
+      flex:1;min-width:200px;max-width:380px;
+      background:rgba(0,0,0,.3);border:1px solid #1a3d5e;
+      color:var(--text);padding:5px 10px;
+      font-family:'Share Tech Mono',monospace;font-size:11px;
+      border-radius:2px;outline:none;
+      transition:border-color .2s;
+    }
+    .vrm-input:focus{border-color:var(--gold)}
+    .vrm-input::placeholder{color:var(--muted)}
+    .vrm-inst{background:rgba(0,0,0,.3);border:1px solid #1a3d5e;color:var(--text);padding:5px 10px;font-family:'Share Tech Mono',monospace;font-size:11px;border-radius:2px;width:100px}
+    .btn-gold{background:rgba(255,176,32,.1);border:1px solid rgba(255,176,32,.4);color:var(--gold);padding:5px 14px;font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:.05em;cursor:pointer;border-radius:2px;transition:all .2s}
+    .btn-gold:hover{background:rgba(255,176,32,.2);border-color:var(--gold)}
+    .btn-gold-sm{background:rgba(255,176,32,.06);border:1px solid rgba(255,176,32,.25);color:rgba(255,176,32,.7);padding:3px 10px;font-family:'Barlow Condensed',sans-serif;font-size:11px;cursor:pointer;border-radius:2px;transition:all .2s}
+    .btn-gold-sm:hover{background:rgba(255,176,32,.15);color:var(--gold)}
+
+    /* VRM data cards */
+    .vrm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:10px;padding:14px}
+    .vc{background:rgba(0,0,0,.25);border:1px solid rgba(255,176,32,.12);border-radius:3px;padding:11px 10px;text-align:center;transition:border-color .3s}
+    .vc.live{border-color:rgba(255,176,32,.3)}
+    .vc-ic{font-size:18px;margin-bottom:4px}
+    .vc-lb{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:3px}
+    .vc-vl{font-family:'Orbitron',monospace;font-size:20px;font-weight:700;color:var(--gold);line-height:1.1}
+    .vc-un{font-size:10px;color:var(--muted);margin-top:2px}
+    .vc-hi{color:#00ff88!important}  /* override for positive values */
+    .vc.wind-card .vc-vl{font-size:28px;color:var(--white)}
+    .vrm-err{padding:14px 16px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);line-height:1.7}
+    .vrm-err a{color:var(--cdim);text-decoration:underline}
+    .vrm-err code{background:rgba(0,0,0,.3);padding:1px 5px;border-radius:2px;font-size:11px;color:var(--text)}
+
+    /* TABS */
+    .tabs{display:flex;gap:6px;flex-wrap:wrap}
+    .tab{background:transparent;border:1px solid var(--bd);color:var(--muted);padding:5px 13px;font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:.05em;cursor:pointer;border-radius:2px;transition:all .2s}
+    .tab:hover{border-color:var(--bdhi);color:var(--text)}
+    .tab.on{background:rgba(0,212,255,.1);border-color:var(--cdim);color:var(--cyan)}
+    .tab.sat.on{background:rgba(176,106,255,.1);border-color:#7040aa;color:var(--purple)}
+    .tab.arome.on{background:rgba(0,255,136,.08);border-color:#00aa55;color:var(--green)}
+    .tab.gfs.on{background:rgba(255,213,0,.07);border-color:#aa8800;color:var(--yellow)}
+    .tab.mfwam.on{background:rgba(0,140,255,.1);border-color:#005080;color:#60c8ff}
+
+    /* ROW 1 */
+    .row1{display:grid;grid-template-columns:256px 1fr;gap:14px}
+    .wind-panel{padding:14px 12px;display:flex;flex-direction:column;align-items:center;gap:11px}
+    .ptitle{font-size:10px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;align-self:flex-start}
+    .cwrap{position:relative;width:180px;height:180px}
+    .wov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+    .wv{font-family:'Orbitron',monospace;font-size:34px;font-weight:900;color:var(--white);line-height:1}
+    .wu{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);letter-spacing:.1em;margin-top:2px}
+    .bfb{font-family:'Orbitron',monospace;font-size:10px;font-weight:700;color:var(--cyan);margin-top:4px;background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.2);border-radius:2px;padding:2px 6px}
+    .wstats{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+    .wsc{background:var(--p2);border:1px solid var(--bd);border-radius:3px;padding:8px 10px;text-align:center}
+    .wsc-l{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+    .wsc-v{font-family:'Orbitron',monospace;font-size:20px;font-weight:700;color:var(--cyan);line-height:1.2;margin-top:2px}
+    .wsc-u{font-size:10px;color:var(--muted)}
+    .cond-panel{padding:14px}
+    .cond-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+    .cc{background:var(--p2);border:1px solid var(--bd);border-radius:3px;padding:12px 13px;display:flex;flex-direction:column;gap:3px}
+    .cc-ic{font-size:18px;margin-bottom:2px}
+    .cc-lb{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase}
+    .cc-vl{font-family:'Orbitron',monospace;font-size:24px;font-weight:700;color:var(--white);line-height:1}
+    .cc-un{font-size:11px;color:var(--muted)}
+    .cc-sb{font-size:11px;color:var(--text);margin-top:2px}
+    .pbar{height:3px;background:var(--bd);border-radius:2px;margin-top:6px}
+    .pbar-f{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--green),var(--cyan),var(--orange));transition:width 1s ease}
+
+    /* MARINE */
+    .marine-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+    .mc{background:var(--p1);border:1px solid var(--bd);border-radius:3px;padding:12px 10px;text-align:center;position:relative;overflow:hidden}
+    .mc::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,150,200,.35),transparent)}
+    .mc-ic{font-size:20px;margin-bottom:5px}
+    .mc-lb{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+    .mc-vl{font-family:'Orbitron',monospace;font-size:19px;font-weight:700;color:var(--cyan)}
+    .mc-un{font-size:10px;color:var(--muted);margin-top:2px}
+
+    /* BOUÉE */
+    .buoy-hdr{padding:12px 14px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+    .buoy-name{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;color:var(--cyan)}
+    .buoy-meta{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)}
+    .buoy-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;padding:14px}
+    .buoy-txt{padding:14px 16px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);line-height:1.8}
+    .buoy-txt a{color:var(--cdim);text-decoration:underline}
+    .buoy-ld{padding:14px 16px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);animation:blink 1.8s infinite}
+    .bc{background:var(--p2);border:1px solid var(--bd);border-radius:3px;padding:12px 10px;text-align:center}
+    .bc-lb{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+    .bc-vl{font-family:'Orbitron',monospace;font-size:22px;font-weight:700;color:var(--cyan);line-height:1.1}
+    .bc-un{font-size:10px;color:var(--muted);margin-top:2px}
+
+    /* RADAR */
+    .rp{padding:12px}
+    .rtb{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
+    .rtl{display:flex;gap:3px;overflow-x:auto;scrollbar-width:none;flex:1}
+    .rtl::-webkit-scrollbar{display:none}
+    .tlb{flex-shrink:0;background:var(--p2);border:1px solid var(--bd);color:var(--muted);padding:3px 7px;font-family:'Share Tech Mono',monospace;font-size:9px;cursor:pointer;border-radius:2px;transition:all .15s}
+    .tlb.active{background:rgba(0,212,255,.12);border-color:var(--cyan);color:var(--cyan)}
+    .tlb.ncast{border-style:dashed}
+    #radarMap{height:390px;border-radius:2px;border:1px solid var(--bd)}
+    .rfoot{display:flex;align-items:center;justify-content:space-between;margin-top:8px;flex-wrap:wrap;gap:6px}
+    .lbar{height:8px;width:110px;border-radius:2px;background:linear-gradient(90deg,#00aaff22,#00aaff,#00ff88,#ffd600,#ff7b29,#ff3b60);border:1px solid var(--bd)}
+    .rinfo{font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)}
+
+    /* FORECAST */
+    .fcp{padding:14px}
+    #forecastChart{max-height:200px}
+
+    /* WINDY */
+    .wh{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+    .wbox{height:500px;border:1px solid var(--bd);border-radius:3px;overflow:hidden}
+    .wbox iframe{width:100%;height:100%;border:none}
+    .wph{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--muted)}
+    .wph p{font-family:'Share Tech Mono',monospace;font-size:11px;animation:blink 2s infinite}
+
+    /* BEAUFORT */
+    .bf-0,.bf-1,.bf-2{color:var(--green)!important}
+    .bf-3,.bf-4{color:#88ff55!important}
+    .bf-5,.bf-6{color:var(--yellow)!important}
+    .bf-7,.bf-8{color:var(--orange)!important}
+    .bf-9,.bf-10,.bf-11,.bf-12{color:var(--red)!important}
+
+    select{background:var(--p2);border:1px solid var(--bd);color:var(--text);padding:4px 8px;font-family:'Share Tech Mono',monospace;font-size:10px;border-radius:2px;cursor:pointer;outline:none}
+
+    @media(max-width:960px){.row1{grid-template-columns:1fr}.marine-grid{grid-template-columns:repeat(3,1fr)}.buoy-grid{grid-template-columns:repeat(3,1fr)}.vrm-grid{grid-template-columns:repeat(3,1fr)}}
+    @media(max-width:600px){.marine-grid,.vrm-grid{grid-template-columns:repeat(2,1fr)}.cond-grid,.buoy-grid{grid-template-columns:repeat(2,1fr)}}
+    .leaflet-control-attribution{background:rgba(6,21,36,.85)!important;color:var(--muted)!important;font-size:9px!important}
+    .leaflet-control-zoom a{background:var(--p1)!important;color:var(--cyan)!important;border-color:var(--bd)!important}
+  </style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="hbrand">
+    <div class="hbrand-icon">⚓</div>
+    <div>
+      <div class="hbrand-name">Station Météo Marine</div>
+      <div class="hbrand-sub">Voiles Filantes · Temps réel</div>
+    </div>
+  </div>
+  <div class="hgeo">
+    <div class="hgeo-c" id="geoC">Localisation en cours…</div>
+    <div class="hgeo-n" id="geoN">—</div>
+  </div>
+  <div class="hst">
+    <div class="spill"><div class="dot" id="dot"></div><span id="lupd">—</span></div>
+    <button class="btn" onclick="initStation()">↻ Actualiser</button>
+  </div>
+</header>
+
+<div class="main">
+
+  <div class="alert" id="alertBanner"></div>
+
+  <!-- ══════════════════════════════════════════
+       🚢 DONNÉES BATEAU — VRM VICTRON
+  ══════════════════════════════════════════ -->
+  <div>
+    <div class="sh">🚢 Données bateau en direct · Victron VRM</div>
+    <div class="vrm-section">
+
+      <!-- SETUP TOKEN -->
+      <div class="vrm-setup">
+        <label>INSTALLATION ID</label>
+        <input class="vrm-inst" id="vrmSite" placeholder="821412" value="821412">
+        <label>TOKEN VRM</label>
+        <input class="vrm-input" id="vrmToken" type="password" placeholder="Personal Access Token — VRM → Préférences → Tokens">
+        <button class="btn-gold" onclick="saveVRM()">Connecter</button>
+        <button class="btn-gold-sm" onclick="clearVRM()">Effacer</button>
+        <a href="https://vrm.victronenergy.com/installation/821412/dashboard" target="_blank"
+           style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--cdim);text-decoration:underline;margin-left:4px">↗ VRM Dashboard</a>
+      </div>
+
+      <!-- HEADER VRM -->
+      <div class="vrm-header">
+        <div>
+          <div class="vrm-title">⚡ Marannah · Cerbo GX</div>
+          <div class="vrm-sub" id="vrmSiteName">— En attente du token —</div>
+        </div>
+        <div class="vrm-status">
+          <div class="vrm-dot" id="vrmDot"></div>
+          <span class="vrm-age" id="vrmAge">—</span>
+          <button class="btn-gold-sm" onclick="fetchVRM()">↻</button>
+        </div>
+      </div>
+
+      <!-- DONNÉES -->
+      <div id="vrmData">
+        <div class="vrm-err" id="vrmHelp" style="display:none">
+          📋 <b style="color:var(--gold)">Comment obtenir votre token :</b><br>
+          1. Aller sur <a href="https://vrm.victronenergy.com" target="_blank">vrm.victronenergy.com</a><br>
+          2. Préférences → <b>Personal Access Tokens</b> → <b>Add token</b><br>
+          3. Copier le token généré et le coller ci-dessus<br>
+          4. Votre Installation ID est déjà pré-rempli : <code>821412</code><br><br>
+          <span style="color:var(--muted)">Le token est sauvegardé localement dans votre navigateur (jamais transmis à un tiers).</span>
+        </div>
+        <div class="vrm-grid" id="vrmGrid" style="display:none">
+          <!-- Wind cards (special size) -->
+          <div class="vc wind-card" id="vc-ws">
+            <div class="vc-ic">💨</div><div class="vc-lb">Vent apparent</div>
+            <div class="vc-vl" id="vrm-ws">—</div><div class="vc-un">NŒUDS</div>
+          </div>
+          <div class="vc" id="vc-wd">
+            <div class="vc-ic">🧭</div><div class="vc-lb">Direction</div>
+            <div class="vc-vl" id="vrm-wd">—</div><div class="vc-un" id="vrm-wddeg">—</div>
+          </div>
+          <!-- Other Cerbo data -->
+          <div class="vc" id="vc-tw">
+            <div class="vc-ic">🌬️</div><div class="vc-lb">Vent réel</div>
+            <div class="vc-vl" id="vrm-tw">—</div><div class="vc-un">kt</div>
+          </div>
+          <div class="vc" id="vc-bat">
+            <div class="vc-ic">🔋</div><div class="vc-lb">Batterie</div>
+            <div class="vc-vl" id="vrm-bat">—</div><div class="vc-un">%</div>
+          </div>
+          <div class="vc" id="vc-bv">
+            <div class="vc-ic">⚡</div><div class="vc-lb">Tension</div>
+            <div class="vc-vl" id="vrm-bv">—</div><div class="vc-un">V</div>
+          </div>
+          <div class="vc" id="vc-pv">
+            <div class="vc-ic">☀️</div><div class="vc-lb">Solaire</div>
+            <div class="vc-vl" id="vrm-pv">—</div><div class="vc-un">W</div>
+          </div>
+          <div class="vc" id="vc-ac">
+            <div class="vc-ic">🔌</div><div class="vc-lb">Conso AC</div>
+            <div class="vc-vl" id="vrm-ac">—</div><div class="vc-un">W</div>
+          </div>
+          <div class="vc" id="vc-dc">
+            <div class="vc-ic">💡</div><div class="vc-lb">Conso DC</div>
+            <div class="vc-vl" id="vrm-dc">—</div><div class="vc-un">W</div>
+          </div>
+          <div class="vc" id="vc-temp">
+            <div class="vc-ic">🌡️</div><div class="vc-lb">Temp. moteur</div>
+            <div class="vc-vl" id="vrm-temp">—</div><div class="vc-un">°C</div>
+          </div>
+          <div class="vc" id="vc-depth">
+            <div class="vc-ic">⚓</div><div class="vc-lb">Profondeur</div>
+            <div class="vc-vl" id="vrm-depth">—</div><div class="vc-un">m</div>
+          </div>
+          <div class="vc" id="vc-gps">
+            <div class="vc-ic">📍</div><div class="vc-lb">Vitesse SOG</div>
+            <div class="vc-vl" id="vrm-sog">—</div><div class="vc-un">kt</div>
+          </div>
+          <div class="vc" id="vc-cog">
+            <div class="vc-ic">🗺️</div><div class="vc-lb">Cap COG</div>
+            <div class="vc-vl" id="vrm-cog">—</div><div class="vc-un">°</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ BOUÉE ══ -->
+  <div>
+    <div class="sh">🔴 Bouée la plus proche · CANDHIS / CEREMA</div>
+    <div class="panel" id="buoyPanel">
+      <div class="buoy-ld">Recherche de la bouée la plus proche…</div>
+    </div>
+  </div>
+
+  <!-- ══ CONDITIONS ══ -->
+  <div>
+    <div class="sh">📡 Conditions actuelles · Analyse Open-Meteo</div>
+    <div class="row1">
+      <div class="panel wind-panel">
+        <div class="ptitle">Direction &amp; Force du vent</div>
+        <div class="cwrap">
+          <canvas id="compassCanvas" width="180" height="180"></canvas>
+          <div class="wov">
+            <div class="wv" id="windSpeed">—</div>
+            <div class="wu">NŒUDS</div>
+            <div class="bfb" id="bfBadge">—</div>
+          </div>
+        </div>
+        <div class="wstats">
+          <div class="wsc"><div class="wsc-l">Rafales</div><div class="wsc-v" id="windGust">—</div><div class="wsc-u">kt</div></div>
+          <div class="wsc"><div class="wsc-l">Provenance</div><div class="wsc-v" style="font-size:15px" id="windDir">—</div></div>
+        </div>
+      </div>
+      <div class="panel cond-panel">
+        <div class="cond-grid">
+          <div class="cc"><div class="cc-ic">🌡️</div><div class="cc-lb">Température</div>
+            <div><span class="cc-vl" id="temp">—</span><span class="cc-un">°C</span></div>
+            <div class="cc-sb" id="feels">Ressenti: —°C</div></div>
+          <div class="cc"><div class="cc-ic">💧</div><div class="cc-lb">Humidité</div>
+            <div><span class="cc-vl" id="hum">—</span><span class="cc-un">%</span></div></div>
+          <div class="cc"><div class="cc-ic">⏲️</div><div class="cc-lb">Pression</div>
+            <div><span class="cc-vl" style="font-size:19px" id="pres">—</span><span class="cc-un"> hPa</span></div>
+            <div class="pbar"><div class="pbar-f" id="pbar" style="width:50%"></div></div></div>
+          <div class="cc"><div class="cc-ic">☁️</div><div class="cc-lb">Nuages</div>
+            <div><span class="cc-vl" id="cloud">—</span><span class="cc-un">%</span></div></div>
+          <div class="cc"><div class="cc-ic">👁️</div><div class="cc-lb">Visibilité</div>
+            <div><span class="cc-vl" style="font-size:19px" id="vis">—</span><span class="cc-un" id="visU"> km</span></div></div>
+          <div class="cc"><div class="cc-ic">☀️</div><div class="cc-lb">Indice UV</div>
+            <div><span class="cc-vl" id="uv">—</span></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ ÉTAT MER ══ -->
+  <div>
+    <div class="sh">🌊 État de la mer · Modèle Marine</div>
+    <div class="marine-grid">
+      <div class="mc"><div class="mc-ic">🌊</div><div class="mc-lb">Vagues Hm0</div><div class="mc-vl" id="wH">—</div><div class="mc-un">m</div></div>
+      <div class="mc"><div class="mc-ic">⏱️</div><div class="mc-lb">Période Tp</div><div class="mc-vl" id="wP">—</div><div class="mc-un">s</div></div>
+      <div class="mc"><div class="mc-ic">🧭</div><div class="mc-lb">Direction</div><div class="mc-vl" style="font-size:15px" id="wD">—</div><div class="mc-un" id="wDd">—</div></div>
+      <div class="mc"><div class="mc-ic">〰️</div><div class="mc-lb">Houle Hm0</div><div class="mc-vl" id="sH">—</div><div class="mc-un">m</div></div>
+      <div class="mc"><div class="mc-ic">⏱️</div><div class="mc-lb">Pér. houle</div><div class="mc-vl" id="sP">—</div><div class="mc-un">s</div></div>
+      <div class="mc"><div class="mc-ic">🧭</div><div class="mc-lb">Dir. houle</div><div class="mc-vl" style="font-size:15px" id="sD">—</div><div class="mc-un" id="sDd">—</div></div>
+    </div>
+  </div>
+
+  <!-- ══ RADAR ══ -->
+  <div>
+    <div class="sh">📡 Radar · Précipitations &amp; Satellite IR</div>
+    <div class="panel rp">
+      <div class="rtb">
+        <button class="btn" id="playBtn" onclick="togglePlay()">▶ Lecture</button>
+        <div class="tabs">
+          <button class="tab on"  id="lr-rain" onclick="switchLayer('rain')">🌧 Pluie</button>
+          <button class="tab sat" id="lr-sat"  onclick="switchLayer('sat')">🛰 Satellite IR</button>
+          <button class="tab"     id="lr-both" onclick="switchLayer('both')">☁+🌧 Combiné</button>
+        </div>
+        <select id="colorSel" onchange="showFrame(curFrame)" title="Palette pluie">
+          <option value="2">Bleu universel</option>
+          <option value="4">Weather Channel</option>
+          <option value="6" selected>NEXRAD Lv-III</option>
+          <option value="7">Rainbow SELEX</option>
+          <option value="8">Dark Sky</option>
+        </select>
+        <div class="rtl" id="radarTL"></div>
+      </div>
+      <div id="radarMap"></div>
+      <div class="rfoot">
+        <div class="rinfo" id="radarLbl">Pluie · NEXRAD Lv-III</div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span class="rinfo">Intensité :</span><div class="lbar"></div><span class="rinfo">légère → forte</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ PRÉVISIONS ══ -->
+  <div>
+    <div class="sh">📅 Prévisions 5 jours · Open-Meteo</div>
+    <div class="panel fcp">
+      <div class="tabs" style="margin-bottom:12px">
+        <button class="tab on" id="ft-wind" onclick="switchFc('wind')">🌬 Vent (kt)</button>
+        <button class="tab"    id="ft-temp" onclick="switchFc('temp')">🌡 Température</button>
+        <button class="tab"    id="ft-rain" onclick="switchFc('rain')">🌧 Précipitations</button>
+      </div>
+      <canvas id="forecastChart"></canvas>
+    </div>
+  </div>
+
+  <!-- ══ WINDY ══ -->
+  <div>
+    <div class="sh">🌀 Prévisions Windy</div>
+    <div class="wh">
+      <div class="tabs">
+        <button class="tab on"    id="wm-ecmwf" onclick="switchModel('ecmwf')">ECMWF · Global 9km</button>
+        <button class="tab arome" id="wm-arome" onclick="switchModel('arome')">🇫🇷 AROME · 1.3km Méd</button>
+        <button class="tab gfs"   id="wm-gfs"   onclick="switchModel('gfs')">GFS · NOAA Global</button>
+        <button class="tab mfwam" id="wm-mfwam" onclick="switchModel('mfwam')">MF-WAM · Vagues</button>
+      </div>
+      <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)" id="modelDesc">ECMWF — 10 jours · 9 km · Global</div>
+    </div>
+    <div class="wbox" id="windyBox">
+      <div class="wph"><div style="font-size:38px;opacity:.25">🌀</div><p>En attente de géolocalisation…</p></div>
+    </div>
+  </div>
+
+</div><!-- /main -->
+
+<script>
+/* ═════════════════════════ STATE ════════════════════════ */
+let LAT=null,LON=null;
+let MAP=null,rainLayer=null,satLayer=null;
+let rainFrames=[],satFrames=[],curFrame=0;
+let radarMode='rain',playing=false,playTimer=null;
+let fcData=null,fcChart=null,curFc='wind';
+let vrmTimer=null;
+
+const VRM_BASE='https://vrmapi.victronenergy.com/v2';
+
+/* ═════════════════════════ INIT ════════════════════════ */
+async function initStation(){
+  setDot('');document.getElementById('lupd').textContent='Chargement…';
+  loadVRMConfig();
+  if(!navigator.geolocation){useFallback();return}
+  navigator.geolocation.getCurrentPosition(
+    p=>{LAT=+p.coords.latitude.toFixed(5);LON=+p.coords.longitude.toFixed(5);
+        document.getElementById('geoC').textContent=
+          `${LAT>=0?LAT+'°N':Math.abs(LAT)+'°S'}  ${LON>=0?LON+'°E':Math.abs(LON)+'°W'}`;
+        run()},
+    ()=>useFallback(),{timeout:8000});
+}
+function useFallback(){
+  LAT=41.3817;LON=9.1594;
+  document.getElementById('geoC').textContent='41.3817°N  9.1594°E';
+  document.getElementById('geoN').textContent='Bonifacio (défaut)';
+  run();
+}
+async function run(){
+  await Promise.allSettled([fetchWeather(),fetchMarine(),fetchForecast(),fetchBuoy()]);
+  initMap();loadRadar();loadWindy('ecmwf');
+  setDot('live');
+  document.getElementById('lupd').textContent=
+    'MAJ '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+}
+
+/* ═════════════════════════ VRM API ════════════════════════
+   API Doc: https://vrm-api-docs.victronenergy.com/
+   Token: VRM → Préférences → Personal Access Tokens
+═══════════════════════════════════════════════════════════ */
+
+function loadVRMConfig(){
+  const token=localStorage.getItem('vrm_token')||'';
+  const site=localStorage.getItem('vrm_site')||'821412';
+  document.getElementById('vrmToken').value=token;
+  document.getElementById('vrmSite').value=site;
+  if(token){
+    document.getElementById('vrmHelp').style.display='none';
+    fetchVRM();
+    // Refresh every 60s
+    if(vrmTimer)clearInterval(vrmTimer);
+    vrmTimer=setInterval(fetchVRM,60000);
+  }else{
+    document.getElementById('vrmHelp').style.display='block';
+  }
+}
+
+function saveVRM(){
+  const token=document.getElementById('vrmToken').value.trim();
+  const site=document.getElementById('vrmSite').value.trim()||'821412';
+  if(!token){alert('Entrez votre Personal Access Token VRM');return}
+  localStorage.setItem('vrm_token',token);
+  localStorage.setItem('vrm_site',site);
+  document.getElementById('vrmHelp').style.display='none';
+  fetchVRM();
+  if(vrmTimer)clearInterval(vrmTimer);
+  vrmTimer=setInterval(fetchVRM,60000);
+}
+
+function clearVRM(){
+  localStorage.removeItem('vrm_token');
+  localStorage.removeItem('vrm_site');
+  document.getElementById('vrmToken').value='';
+  document.getElementById('vrmGrid').style.display='none';
+  document.getElementById('vrmHelp').style.display='block';
+  if(vrmTimer)clearInterval(vrmTimer);
+  setVrmDot('');
+  elText('vrmSiteName','— En attente du token —');
+  elText('vrmAge','—');
+}
+
+async function fetchVRM(){
+  const token=localStorage.getItem('vrm_token');
+  const site=localStorage.getItem('vrm_site')||'821412';
+  if(!token)return;
+
+  setVrmDot('');elText('vrmAge','Chargement…');
+
+  try{
+    // Fetch site info + diagnostics in parallel
+    const headers={'x-authorization':'Token '+token,'Content-Type':'application/json'};
+    const [siteRes,diagRes]=await Promise.all([
+      fetch(`${VRM_BASE}/installations/${site}/system-overview`,{headers}),
+      fetch(`${VRM_BASE}/installations/${site}/diagnostics?count=1000`,{headers})
+    ]);
+
+    if(siteRes.status===401||diagRes.status===401){
+      throw new Error('Token invalide ou expiré');
+    }
+    if(!siteRes.ok||!diagRes.ok){throw new Error('Erreur API VRM')}
+
+    const siteData=await siteRes.json();
+    const diagData=await diagRes.json();
+
+    // Site name
+    const siteName=siteData?.records?.name||`Installation ${site}`;
+    elText('vrmSiteName',siteName);
+
+    // Parse diagnostics — find values by description (case-insensitive search)
+    const diag=(diagData?.records?.data)||[];
+    const find=(...keys)=>{
+      for(const k of keys){
+        const r=diag.find(d=>d.description?.toLowerCase().includes(k.toLowerCase()));
+        if(r&&r.rawValue!=null)return r;
+      }
+      return null;
+    };
+
+    // Wind data (from anemometer via Signal K → Venus plugin → VRM)
+    const ws=find('wind speed','windspeed','apparent wind speed');
+    const wd=find('wind direction','apparent wind direction','wind angle');
+    const tw=find('true wind speed','true wind');
+
+    // Electrical
+    const bat=find('state of charge','soc','battery soc');
+    const bv=find('battery voltage','voltage');
+    const pv=find('pv power','solar power','charger power');
+    const acLoad=find('ac consumption','ac load','loads ac');
+    const dcLoad=find('dc power','dc load','dc consumption');
+
+    // Navigation (from GPS via Signal K)
+    const sog=find('speed over ground','sog','gps speed');
+    const cog=find('course over ground','cog','heading');
+    const depth=find('depth','water depth');
+
+    // Temperature (engine if connected)
+    const engTemp=find('engine temperature','engine coolant','temperature');
+
+    // Update UI
+    const wsKt=ws?mpsToKt(ws.rawValue,ws.unit):null;
+    if(wsKt!==null){
+      elText('vrm-ws',wsKt.toFixed(1));
+      document.getElementById('vc-ws').classList.add('live');
+    }
+    if(wd){
+      const deg=Math.round(wd.rawValue);
+      elText('vrm-wd',card(deg));
+      elText('vrm-wddeg',deg+'°');
+      document.getElementById('vc-wd').classList.add('live');
+    }
+    const twKt=tw?mpsToKt(tw.rawValue,tw.unit):null;
+    if(twKt!==null){elText('vrm-tw',twKt.toFixed(1));document.getElementById('vc-tw').classList.add('live')}
+
+    if(bat){
+      const soc=Math.round(bat.rawValue);
+      const el=document.getElementById('vrm-bat');
+      el.textContent=soc;
+      el.style.color=soc>50?'var(--green)':soc>20?'var(--yellow)':'var(--red)';
+      document.getElementById('vc-bat').classList.add('live');
+    }
+    if(bv){elText('vrm-bv',(+bv.rawValue).toFixed(1));document.getElementById('vc-bv').classList.add('live')}
+    if(pv){elText('vrm-pv',Math.round(pv.rawValue));document.getElementById('vc-pv').classList.add('live')}
+    if(acLoad){elText('vrm-ac',Math.round(acLoad.rawValue));document.getElementById('vc-ac').classList.add('live')}
+    if(dcLoad){elText('vrm-dc',Math.round(dcLoad.rawValue));document.getElementById('vc-dc').classList.add('live')}
+    if(engTemp){elText('vrm-temp',Math.round(engTemp.rawValue));document.getElementById('vc-temp').classList.add('live')}
+    if(depth){elText('vrm-depth',(+depth.rawValue).toFixed(1));document.getElementById('vc-depth').classList.add('live')}
+    if(sog){elText('vrm-sog',mpsToKt(sog.rawValue,sog.unit).toFixed(1));document.getElementById('vc-gps').classList.add('live')}
+    if(cog){elText('vrm-cog',Math.round(cog.rawValue));document.getElementById('vc-cog').classList.add('live')}
+
+    document.getElementById('vrmGrid').style.display='grid';
+    setVrmDot('live');
+    elText('vrmAge','MAJ '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}));
+
+    // If we got live boat wind, draw a second compass indicator
+    if(wsKt&&wd)drawVRMWindBadge(wsKt,wd.rawValue);
+
+  }catch(err){
+    setVrmDot('err');
+    elText('vrmAge',err.message);
+    // Show error in grid area
+    document.getElementById('vrmGrid').style.display='none';
+    document.getElementById('vrmHelp').style.display='block';
+    document.getElementById('vrmHelp').innerHTML=
+      `⚠ Erreur VRM : <span style="color:var(--red)">${err.message}</span><br>
+       Vérifiez votre token sur <a href="https://vrm.victronenergy.com" target="_blank">vrm.victronenergy.com</a>
+       → Préférences → Personal Access Tokens<br><br>
+       <span style="color:var(--muted);font-size:10px">Si le token est correct et que l'erreur persiste, c'est peut-être un problème CORS — dans ce cas hébergez ce fichier en HTTPS (GitHub Pages).</span>`;
+  }
+}
+
+// Convert m/s or other units to knots
+function mpsToKt(val,unit){
+  if(!unit)return val;
+  const u=unit.toLowerCase();
+  if(u==='kt'||u==='kn'||u==='knots')return parseFloat(val);
+  if(u==='m/s'||u==='ms')return parseFloat(val)*1.94384;
+  if(u==='km/h'||u==='kph')return parseFloat(val)*0.539957;
+  if(u==='mph')return parseFloat(val)*0.868976;
+  return parseFloat(val);
+}
+
+function drawVRMWindBadge(ws,wd){
+  // Small notification on compass section
+  const badge=document.getElementById('bfBadge');
+  const bf=beaufort(ws);
+  badge.textContent=`BF ${bf} · VRM LIVE`;
+  badge.style.borderColor='rgba(255,176,32,.5)';
+  badge.style.color='var(--gold)';
+}
+
+function setVrmDot(s){
+  const d=document.getElementById('vrmDot');
+  d.className='vrm-dot'+(s==='live'?' live':s==='err'?' err':'');
+}
+
+/* ═════════════════════════ WEATHER ════════════════════════ */
+async function fetchWeather(){
+  const u=`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}`
+    +`&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m`
+    +`,wind_direction_10m,wind_gusts_10m,surface_pressure,cloud_cover,visibility,uv_index`
+    +`&wind_speed_unit=kn&timezone=auto`;
+  const c=(await(await fetch(u)).json()).current;
+  const ws=Math.round(c.wind_speed_10m),wd=c.wind_direction_10m,wg=Math.round(c.wind_gusts_10m);
+  const bf=beaufort(ws);
+  elText('windSpeed',ws);document.getElementById('windSpeed').className='wv bf-'+bf;
+  elText('windGust',wg);elText('windDir',card(wd));elText('bfBadge','BEAUFORT '+bf);
+  elText('temp',Math.round(c.temperature_2m));
+  elText('feels','Ressenti: '+Math.round(c.apparent_temperature)+'°C');
+  elText('hum',Math.round(c.relative_humidity_2m));
+  const p=Math.round(c.surface_pressure);
+  elText('pres',p);document.getElementById('pbar').style.width=Math.min(100,Math.max(0,((p-960)/80)*100))+'%';
+  elText('cloud',Math.round(c.cloud_cover));
+  const vis=c.visibility;
+  elText('vis',vis>=1000?(vis/1000).toFixed(1):Math.round(vis));
+  elText('visU',vis>=1000?' km':' m');
+  elText('uv',Math.round(c.uv_index||0));
+  drawCompass(wd,ws);
+  if(bf>=6){
+    const a=document.getElementById('alertBanner');
+    a.style.display='block';
+    a.textContent=`⚠ VENT FORT — Beaufort ${bf} · ${ws} kt · Rafales ${wg} kt · ${card(wd)}`;
+  }
+}
+
+/* ═════════════════════════ MARINE ════════════════════════ */
+async function fetchMarine(){
+  try{
+    const u=`https://marine-api.open-meteo.com/v1/marine?latitude=${LAT}&longitude=${LON}`
+      +`&current=wave_height,wave_direction,wave_period,swell_wave_height,swell_wave_direction,swell_wave_period&timezone=auto`;
+    const c=(await(await fetch(u)).json()).current;
+    if(!c)throw 0;
+    elText('wH',c.wave_height?.toFixed(1));elText('wP',c.wave_period?.toFixed(0));
+    elText('wD',card(c.wave_direction));elText('wDd',(c.wave_direction|0)+'°');
+    elText('sH',c.swell_wave_height?.toFixed(1));elText('sP',c.swell_wave_period?.toFixed(0));
+    elText('sD',card(c.swell_wave_direction));elText('sDd',(c.swell_wave_direction|0)+'°');
+  }catch{['wH','wP','wD','sH','sP','sD'].forEach(id=>elText(id,'N/A'));
+          elText('wDd','Pos. terrestre?');elText('sDd','');}
+}
+
+/* ═════════════════════════ BOUÉE ════════════════════════ */
+const CANDHIS_MED=[
+  {id:'06906',name:'Propriano (Corse)',lat:41.44,lon:8.82},
+  {id:'06902',name:'Ajaccio (Corse)',lat:41.92,lon:8.67},
+  {id:'06901',name:'Calvi (Corse)',lat:42.49,lon:8.67},
+  {id:'06904',name:'Bastia (Corse)',lat:42.70,lon:9.50},
+  {id:'06205',name:'Antibes',lat:43.28,lon:7.32},
+  {id:'07402',name:'Marseille large',lat:43.05,lon:5.08},
+  {id:'07403',name:'Provence large',lat:43.00,lon:4.70},
+  {id:'07404',name:'Bouée du Lion',lat:42.10,lon:4.68},
+];
+async function fetchBuoy(){
+  const panel=document.getElementById('buoyPanel');
+  try{
+    const resp=await Promise.race([
+      fetch('https://candhis.cerema.fr/api/public/v2/campagne/?format=json'),
+      new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),6000))
+    ]);
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    const list=await resp.json();
+    let best=null,bestD=Infinity;
+    for(const b of list){
+      const blat=parseFloat(b.lat||b.latitude||0),blon=parseFloat(b.lon||b.longitude||0);
+      if(!blat||!blon)continue;
+      const d=haversine(LAT,LON,blat,blon);
+      if(d<bestD){bestD=d;best={...b,_lat:blat,_lon:blon,_d:d};}
+    }
+    if(!best||bestD>500)throw new Error('no nearby buoy');
+    const bid=best.idCampagne||best.id;
+    const mr=await Promise.race([
+      fetch(`https://candhis.cerema.fr/api/public/v2/campagne/${bid}/dernieresMesures/`),
+      new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),5000))
+    ]);
+    if(!mr.ok)throw new Error('measures failed');
+    renderBuoy(panel,best,bid,await mr.json());
+  }catch{
+    const sorted=[...CANDHIS_MED].sort((a,b)=>haversine(LAT,LON,a.lat,a.lon)-haversine(LAT,LON,b.lat,b.lon));
+    panel.innerHTML=`<div class="buoy-txt">
+      <span style="color:var(--yellow)">⚠ Accès CANDHIS bloqué (CORS — normal en accès local)</span><br>
+      Données disponibles sur : <a href="https://candhis.cerema.fr" target="_blank">candhis.cerema.fr</a> · <a href="https://marine.copernicus.eu" target="_blank">CMEMS Copernicus</a><br><br>
+      <span style="color:var(--cyan)">Bouées les plus proches :</span><br>
+      ${sorted.slice(0,4).map(b=>`• <a href="https://candhis.cerema.fr/#/campagne/${b.id}" target="_blank">${b.name}</a> <span style="color:var(--muted)">— ${haversine(LAT,LON,b.lat,b.lon).toFixed(0)} km</span>`).join('<br>')}
+      <br><br><span style="color:var(--muted);font-size:10px">💡 Hébergez ce fichier en HTTPS (GitHub Pages) pour activer les données en direct.</span>
+    </div>`;
+  }
+}
+function renderBuoy(panel,buoy,bid,measures){
+  const name=buoy.libelle||buoy.nom||buoy.name||'Bouée #'+bid;
+  const m=Array.isArray(measures)?(measures[0]||{}):measures;
+  const hm0=pf(m,['Hm0','hm0','hauteur_significative']);
+  const tp=pf(m,['Tp','tp','periode_pic']);
+  const tm=pf(m,['Tm02','tm02','periode_moyenne']);
+  const dir=pf(m,['DirMoy','dir_moy','direction','Dir']);
+  const tmer=pf(m,['TempMer','temp_mer','sea_temperature']);
+  const dt=pf(m,['DateHeure','date_heure','datetime','time']);
+  const dtS=dt?new Date(dt).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'}):'—';
+  panel.innerHTML=`
+    <div class="buoy-hdr">
+      <div><div class="buoy-name">📍 ${name}</div>
+      <div class="buoy-meta">${buoy._d?.toFixed(0)} km · MAJ ${dtS}</div></div>
+      <a href="https://candhis.cerema.fr/#/campagne/${bid}" target="_blank" style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--cdim);text-decoration:underline">↗ Données complètes</a>
+    </div>
+    <div class="buoy-grid">
+      ${bCard('🌊','Hm0 Vagues',hm0,'m')}
+      ${bCard('⏱️','Période Tp',tp,'s')}
+      ${bCard('⏱️','Période Tm02',tm,'s')}
+      ${bCard('🧭','Direction',dir!=null?card(parseFloat(dir)):'—',dir!=null?parseFloat(dir).toFixed(0)+'°':'')}
+      ${bCard('🌡️','T° mer',tmer,'°C')}
+    </div>`;
+}
+function bCard(ic,lb,val,unit){
+  const v=(val===null||val===undefined||val==='')?'—':isNaN(+val)?val:(+val>10?(+val).toFixed(0):(+val).toFixed(1));
+  return `<div class="bc"><div style="font-size:18px;margin-bottom:4px">${ic}</div><div class="bc-lb">${lb}</div><div class="bc-vl">${v}</div><div class="bc-un">${unit}</div></div>`;
+}
+function pf(obj,keys){
+  if(!obj||typeof obj!=='object')return null;
+  for(const k of keys){const f=Object.keys(obj).find(ok=>ok.toLowerCase()===k.toLowerCase());if(f&&obj[f]!=null)return obj[f]}
+  return null;
+}
+
+/* ═════════════════════════ FORECAST ════════════════════════ */
+async function fetchForecast(){
+  const u=`https://api.open-meteo.com/v1/forecast?latitude=${LAT}&longitude=${LON}`
+    +`&hourly=temperature_2m,wind_speed_10m,precipitation&wind_speed_unit=kn&timezone=auto&forecast_days=5`;
+  fcData=(await(await fetch(u)).json()).hourly;renderFc('wind');
+}
+function switchFc(type){
+  ['wind','temp','rain'].forEach(t=>document.getElementById('ft-'+t).classList.toggle('on',t===type));
+  renderFc(type);
+}
+function renderFc(type){
+  if(!fcData)return;
+  const idx=fcData.time.map((_,i)=>i).filter(i=>i%3===0).slice(0,40);
+  const labels=idx.map(i=>{const d=new Date(fcData.time[i]);
+    return d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric'})+' '+d.getHours().toString().padStart(2,'0')+'h'});
+  let data,col,fill,yL;
+  if(type==='wind'){data=idx.map(i=>fcData.wind_speed_10m[i]);col='#00d4ff';fill=false;yL='kt'}
+  else if(type==='temp'){data=idx.map(i=>fcData.temperature_2m[i]);col='#ff7b29';fill=false;yL='°C'}
+  else{data=idx.map(i=>fcData.precipitation[i]);col='#00ff88';fill=true;yL='mm'}
+  const ctx=document.getElementById('forecastChart').getContext('2d');
+  if(fcChart)fcChart.destroy();
+  fcChart=new Chart(ctx,{type:type==='rain'?'bar':'line',
+    data:{labels,datasets:[{data,borderColor:col,backgroundColor:col+(type==='rain'?'aa':'18'),borderWidth:2,pointRadius:2,pointHoverRadius:5,tension:.4,fill}]},
+    options:{responsive:true,plugins:{legend:{display:false},tooltip:{backgroundColor:'#061524',borderColor:'#0e2840',borderWidth:1,titleColor:'#a8cce8',bodyColor:col,callbacks:{label:c=>c.parsed.y.toFixed(1)+' '+yL}}},
+      scales:{x:{grid:{color:'#0e2840'},ticks:{color:'#324e68',font:{family:'Share Tech Mono',size:9},maxTicksLimit:12}},y:{grid:{color:'#0e2840'},ticks:{color:'#324e68',font:{family:'Share Tech Mono',size:10},callback:v=>v+' '+yL}}}}});
+}
+
+/* ═════════════════════════ MAP ════════════════════════════ */
+function initMap(){
+  if(MAP){MAP.setView([LAT,LON],8);return}
+  MAP=L.map('radarMap',{center:[LAT,LON],zoom:8});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',{attribution:'© OpenStreetMap, © CARTO',maxZoom:18}).addTo(MAP);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{attribution:'',maxZoom:18,zIndex:500}).addTo(MAP);
+  L.circleMarker([LAT,LON],{radius:9,fillColor:'#00d4ff',color:'#fff',weight:2,fillOpacity:.95}).bindTooltip('📍 Position actuelle').addTo(MAP);
+}
+
+/* ═════════════════════════ RADAR ════════════════════════ */
+async function loadRadar(){
+  try{
+    const data=await(await fetch('https://api.rainviewer.com/public/weather-maps.json')).json();
+    rainFrames=[...(data.radar?.past||[]),...(data.radar?.nowcast||[])];
+    satFrames=[...(data.satellite?.infrared||[])];
+    const tl=document.getElementById('radarTL');tl.innerHTML='';
+    rainFrames.forEach((fr,i)=>{
+      const b=document.createElement('button');const isN=i>=rainFrames.length-2;
+      b.className='tlb'+(i===rainFrames.length-1?' active':'')+(isN?' ncast':'');
+      b.textContent=new Date(fr.time*1000).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+(isN?'~':'');
+      b.onclick=()=>showFrame(i);tl.appendChild(b);
+    });
+    curFrame=Math.max(0,rainFrames.length-1);showFrame(curFrame);
+  }catch{document.getElementById('radarTL').innerHTML='<span style="font-size:10px;color:var(--muted)">Radar indisponible</span>'}
+}
+function showFrame(idx){
+  if(!MAP)return;
+  if(rainLayer){MAP.removeLayer(rainLayer);rainLayer=null}
+  if(satLayer){MAP.removeLayer(satLayer);satLayer=null}
+  document.querySelectorAll('.tlb').forEach((b,i)=>b.classList.toggle('active',i===idx));
+  curFrame=idx;const sc=document.getElementById('colorSel').value;
+  if((radarMode==='rain'||radarMode==='both')&&rainFrames[idx])
+    rainLayer=L.tileLayer(`https://tilecache.rainviewer.com${rainFrames[idx].path}/256/{z}/{x}/{y}/${sc}/1_1.png`,{opacity:.7,zIndex:10}).addTo(MAP);
+  if((radarMode==='sat'||radarMode==='both')&&satFrames.length){
+    const rt=rainFrames[idx]?.time||0;
+    const best=satFrames.reduce((a,b)=>Math.abs(b.time-rt)<Math.abs(a.time-rt)?b:a);
+    satLayer=L.tileLayer(`https://tilecache.rainviewer.com${best.path}/256/{z}/{x}/{y}/0/0_0.png`,{opacity:radarMode==='both'?.45:.75,zIndex:9}).addTo(MAP);
+  }
+  const ss={2:'Bleu universel',4:'Weather Channel',6:'NEXRAD Lv-III',7:'Rainbow SELEX',8:'Dark Sky'};
+  const sc2=document.getElementById('colorSel').value;
+  const lbl={rain:'Pluie · '+ss[sc2],sat:'Satellite IR (infrarouge)',both:'Combiné Satellite + Pluie · '+ss[sc2]};
+  elText('radarLbl',lbl[radarMode]||'');
+}
+function switchLayer(mode){
+  radarMode=mode;
+  ['rain','sat','both'].forEach(m=>document.getElementById('lr-'+m).classList.toggle('on',m===mode));
+  const isSat=mode==='sat';const sel=document.getElementById('colorSel');
+  sel.style.opacity=isSat?'.35':'1';sel.disabled=isSat;showFrame(curFrame);
+}
+function togglePlay(){
+  playing=!playing;const btn=document.getElementById('playBtn');
+  if(playing){btn.textContent='⏸ Pause';playTimer=setInterval(()=>showFrame((curFrame+1)%rainFrames.length),700)}
+  else{btn.textContent='▶ Lecture';clearInterval(playTimer)}
+}
+
+/* ═════════════════════════ WINDY ════════════════════════ */
+const MODELS={
+  ecmwf:{desc:'ECMWF — 10 jours · 9 km · Global',product:'ecmwf',overlay:'wind'},
+  arome:{desc:'AROME — 48 h · 1.3 km · France/Méd',product:'arome',overlay:'wind'},
+  gfs:  {desc:'GFS NOAA — 16 j · 28 km · Global',product:'gfs',overlay:'wind'},
+  mfwam:{desc:'MF-WAM — Houle Météo-France',product:'mfwam',overlay:'waves'},
+};
+function switchModel(m){
+  Object.keys(MODELS).forEach(k=>document.getElementById('wm-'+k)?.classList.toggle('on',k===m));
+  elText('modelDesc',MODELS[m]?.desc||'');
+  if(LAT)loadWindy(m);
+}
+function loadWindy(m='ecmwf'){
+  const {product,overlay}=MODELS[m]||MODELS.ecmwf;
+  document.getElementById('windyBox').innerHTML=`<iframe
+    src="https://embed.windy.com/embed2.html?lat=${LAT}&lon=${LON}&zoom=9&level=surface&overlay=${overlay}&product=${product}&menu=&message=true&marker=true&calendar=now&pressure=true&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=%C2%B0C&radarRange=-1"
+    allowfullscreen loading="lazy"></iframe>`;
+}
+
+/* ═════════════════════════ COMPASS ═════════════════════ */
+function drawCompass(dir,spd){
+  const cv=document.getElementById('compassCanvas');
+  const ctx=cv.getContext('2d'),W=cv.width,H=cv.height,cx=W/2,cy=H/2,R=76;
+  ctx.clearRect(0,0,W,H);
+  const g=ctx.createRadialGradient(cx,cy,R-8,cx,cy,R+12);
+  g.addColorStop(0,'rgba(0,212,255,.04)');g.addColorStop(1,'transparent');
+  ctx.beginPath();ctx.arc(cx,cy,R+12,0,Math.PI*2);ctx.fillStyle=g;ctx.fill();
+  ctx.beginPath();ctx.arc(cx,cy,R+1,0,Math.PI*2);ctx.strokeStyle='#0e2840';ctx.lineWidth=1.5;ctx.stroke();
+  for(let i=0;i<360;i+=5){
+    const r=(i-90)*Math.PI/180,maj=i%90===0,mid=i%30===0,len=maj?11:mid?7:4;
+    ctx.beginPath();ctx.moveTo(cx+R*Math.cos(r),cy+R*Math.sin(r));
+    ctx.lineTo(cx+(R-len)*Math.cos(r),cy+(R-len)*Math.sin(r));
+    ctx.strokeStyle=maj?'#1a3d5e':'#0d2438';ctx.lineWidth=maj?1.5:.8;ctx.stroke();
+  }
+  ctx.font='bold 10px "Barlow Condensed",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+  [{l:'N',a:0,c:'#ff3b60'},{l:'E',a:90,c:'#324e68'},{l:'S',a:180,c:'#324e68'},{l:'O',a:270,c:'#324e68'}]
+    .forEach(({l,a,c})=>{const r=(a-90)*Math.PI/180;ctx.fillStyle=c;ctx.fillText(l,cx+(R-18)*Math.cos(r),cy+(R-18)*Math.sin(r))});
+  const bf=beaufort(spd);
+  const col=bf>=9?'#ff3b60':bf>=7?'#ff7b29':bf>=5?'#ffd600':'#00d4ff';
+  const angle=((dir+180)%360)*Math.PI/180;
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(angle);
+  ctx.shadowColor=col;ctx.shadowBlur=10;
+  const AL=46;
+  ctx.beginPath();ctx.moveTo(0,AL*.55);ctx.lineTo(0,-AL);ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(0,-AL);ctx.lineTo(-9,-AL+16);ctx.lineTo(9,-AL+16);ctx.closePath();ctx.fillStyle=col;ctx.fill();
+  ctx.beginPath();ctx.moveTo(-7,AL*.35);ctx.lineTo(0,AL*.6);ctx.lineTo(7,AL*.35);ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.stroke();
+  ctx.restore();
+  ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fillStyle='#061524';ctx.fill();ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.stroke();
+}
+
+/* ═════════════════════════ HELPERS ═════════════════════ */
+function beaufort(kt){
+  if(kt<1)return 0;if(kt<4)return 1;if(kt<7)return 2;if(kt<11)return 3;
+  if(kt<17)return 4;if(kt<22)return 5;if(kt<28)return 6;if(kt<34)return 7;
+  if(kt<41)return 8;if(kt<48)return 9;if(kt<56)return 10;if(kt<64)return 11;return 12;
+}
+function card(deg){
+  if(deg==null)return'—';
+  return['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'][Math.round(((deg%360)+360)%360/22.5)%16];
+}
+function haversine(la1,lo1,la2,lo2){
+  const R=6371,dL=(la2-la1)*Math.PI/180,dO=(lo2-lo1)*Math.PI/180;
+  const a=Math.sin(dL/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dO/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function elText(id,v){const el=document.getElementById(id);if(el)el.textContent=v??'—'}
+function setDot(s){const d=document.getElementById('dot');d.className='dot'+(s==='live'?' live':s==='err'?' err':'')}
+
+window.addEventListener('load',initStation);
+</script>
+</body>
+</html>
