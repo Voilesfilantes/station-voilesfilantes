@@ -158,6 +158,36 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 #forecastChart{max-height:200px}
 
 .bf-0,.bf-1,.bf-2{color:var(--green)!important}
+
+/* NAV TABS */
+.nav-tabs{display:flex;gap:0;border-bottom:2px solid var(--bd);margin-bottom:16px}
+.nav-tab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:10px 20px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:600;letter-spacing:.08em;cursor:pointer;transition:all .2s;margin-bottom:-2px}
+.nav-tab:hover{color:var(--text)}
+.nav-tab.active{color:var(--cyan);border-bottom-color:var(--cyan)}
+.nav-tab.surv.active{color:#ff7b29;border-bottom-color:#ff7b29}
+.page{display:none}.page.active{display:block}
+
+/* SURVEILLANCE */
+.surv-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.surv-map{height:420px;border-radius:3px;overflow:hidden;border:1px solid var(--bd)}
+.surv-right{display:flex;flex-direction:column;gap:14px}
+.surv-wind{background:var(--p1);border:1px solid var(--bd);border-left:3px solid var(--cyan);border-radius:3px;padding:16px}
+.surv-wind-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+.sw{background:var(--p2);border:1px solid var(--bd);border-radius:3px;padding:12px;text-align:center}
+.sw-lb{font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:4px}
+.sw-vl{font-family:'Orbitron',monospace;font-size:28px;font-weight:900;color:var(--cyan);line-height:1}
+.sw-un{font-size:10px;color:var(--muted);margin-top:2px}
+.sw.big .sw-vl{font-size:36px;color:var(--white)}
+.sw.green .sw-vl{color:var(--green)}
+.surv-cam{background:var(--p1);border:1px solid var(--bd);border-left:3px solid var(--orange);border-radius:3px;padding:16px;text-align:center}
+.cam-btn{display:inline-flex;align-items:center;gap:10px;background:linear-gradient(135deg,rgba(255,123,41,.15),rgba(255,123,41,.05));border:1px solid var(--orange);color:var(--orange);padding:12px 24px;font-family:'Orbitron',monospace;font-size:13px;font-weight:700;letter-spacing:.1em;cursor:pointer;border-radius:3px;text-decoration:none;transition:all .2s;margin-top:12px}
+.cam-btn:hover{background:rgba(255,123,41,.25)}
+.surv-gps{background:var(--p1);border:1px solid var(--bd);border-left:3px solid var(--green);border-radius:3px;padding:12px}
+.gps-vals{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+.gv{background:var(--p2);border:1px solid var(--bd);border-radius:3px;padding:8px 10px;text-align:center}
+.gv-lb{font-size:10px;color:var(--muted);letter-spacing:.08em;text-transform:uppercase}
+.gv-vl{font-family:'Share Tech Mono',monospace;font-size:15px;color:var(--green);margin-top:2px}
+
 .bf-3,.bf-4{color:#88ff55!important}
 .bf-5,.bf-6{color:var(--yellow)!important}
 .bf-7,.bf-8{color:var(--orange)!important}
@@ -189,6 +219,15 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 
 <div class="main">
   <div class="alert" id="alertBanner"></div>
+
+  <!-- NAV ONGLETS -->
+  <div class="nav-tabs">
+    <button class="nav-tab active" onclick="showPage('meteo')">🌊 Météo & Données</button>
+    <button class="nav-tab surv" onclick="showPage('surv')">📡 Surveillance</button>
+  </div>
+
+  <!-- ══ PAGE MÉTÉO ══ -->
+  <div class="page active" id="page-meteo">
 
   <!-- ══ DONNÉES BATEAU ══ -->
   <div>
@@ -333,6 +372,71 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
     </div>
   </div>
 
+  </div><!-- /page-meteo -->
+
+  <!-- ══ PAGE SURVEILLANCE ══ -->
+  <div class="page" id="page-surv">
+    <div class="sh">📡 Surveillance · Marannah</div>
+
+    <div class="surv-grid">
+      <!-- CARTE GPS -->
+      <div>
+        <div style="font-family:'Orbitron',monospace;font-size:10px;color:var(--muted);letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px">🗺️ Position GPS en temps réel</div>
+        <div class="surv-map" id="surv-map-container">
+          <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:11px">
+            En attente de données GPS (MQTT)…
+          </div>
+        </div>
+      </div>
+
+      <!-- DROITE -->
+      <div class="surv-right">
+
+        <!-- VENT TEMPS RÉEL -->
+        <div class="surv-wind">
+          <div style="font-family:'Orbitron',monospace;font-size:11px;font-weight:700;color:var(--cyan);letter-spacing:.12em;display:flex;align-items:center;justify-content:space-between">
+            💨 VENT EN DIRECT · MQTT
+            <div style="display:flex;align-items:center;gap:6px">
+              <div class="mqtt-dot" id="survDot"></div>
+              <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)" id="survAge">—</span>
+            </div>
+          </div>
+          <div class="surv-wind-grid">
+            <div class="sw big"><div class="sw-lb">Vent apparent</div><div class="sw-vl" id="s-was">—</div><div class="sw-un">kt</div></div>
+            <div class="sw"><div class="sw-lb">Direction app.</div><div class="sw-vl" style="font-size:20px" id="s-wad">—</div><div class="sw-un" id="s-waddeg">—</div></div>
+            <div class="sw green"><div class="sw-lb">Vent réel</div><div class="sw-vl" id="s-wts">—</div><div class="sw-un">kt</div></div>
+            <div class="sw"><div class="sw-lb">Direction réelle</div><div class="sw-vl" style="font-size:20px" id="s-wtd">—</div><div class="sw-un" id="s-wtddeg">—</div></div>
+          </div>
+        </div>
+
+        <!-- GPS DÉTAIL -->
+        <div class="surv-gps">
+          <div style="font-family:'Orbitron',monospace;font-size:11px;font-weight:700;color:var(--green);letter-spacing:.12em">📍 POSITION & NAVIGATION</div>
+          <div class="gps-vals">
+            <div class="gv"><div class="gv-lb">Latitude</div><div class="gv-vl" id="s-lat">—</div></div>
+            <div class="gv"><div class="gv-lb">Longitude</div><div class="gv-vl" id="s-lon">—</div></div>
+            <div class="gv"><div class="gv-lb">Vitesse SOG</div><div class="gv-vl" id="s-sog">— kt</div></div>
+            <div class="gv"><div class="gv-lb">Cap COG</div><div class="gv-vl" id="s-cog">—°</div></div>
+          </div>
+        </div>
+
+        <!-- CAMÉRA -->
+        <div class="surv-cam">
+          <div style="font-family:'Orbitron',monospace;font-size:11px;font-weight:700;color:var(--orange);letter-spacing:.12em">📷 CAMÉRA · V380 Pro</div>
+          <div style="font-size:12px;color:var(--muted);margin-top:8px;line-height:1.6">
+            Flux vidéo accessible via l'application mobile V380 Pro.<br>
+            Ouvre l'app directement depuis ce bouton.
+          </div>
+          <a class="cam-btn" href="v380pro://" onclick="setTimeout(()=>{window.open('https://www.meshare.com/v380/download','_blank')},2000)">
+            📷 &nbsp;OUVRIR V380 PRO
+          </a>
+          <div style="font-size:10px;color:var(--muted);margin-top:8px">Si l'app ne s'ouvre pas → vérifier l'installation</div>
+        </div>
+
+      </div>
+    </div>
+  </div><!-- /page-surv -->
+
 </div><!-- /main -->
 
 <!-- Windy Plugins API -->
@@ -405,10 +509,21 @@ function connectMQTT(){
   mqttClient.on('close',()=>setMqttDot(''));
 }
 function handleVent(d){
-  elText('m-was',d.vitesse_apparente_kt!=null?Number(d.vitesse_apparente_kt).toFixed(1):'—');
-  elText('m-wts',d.vitesse_reelle_kt!=null?Number(d.vitesse_reelle_kt).toFixed(1):'—');
-  if(d.angle_apparent_deg!=null){elText('m-wad',card(d.angle_apparent_deg));elText('m-waddeg',Math.round(d.angle_apparent_deg)+'°')}
-  if(d.direction_reelle_deg!=null){elText('m-wtd',card(d.direction_reelle_deg));elText('m-wtddeg',Math.round(d.direction_reelle_deg)+'°')}
+  const was=d.vitesse_apparente_kt!=null?Number(d.vitesse_apparente_kt).toFixed(1):'—';
+  const wts=d.vitesse_reelle_kt!=null?Number(d.vitesse_reelle_kt).toFixed(1):'—';
+  elText('m-was',was);elText('m-wts',wts);
+  elText('s-was',was);elText('s-wts',wts);
+  if(d.angle_apparent_deg!=null){
+    elText('m-wad',card(d.angle_apparent_deg));elText('m-waddeg',Math.round(d.angle_apparent_deg)+'°');
+    elText('s-wad',card(d.angle_apparent_deg));elText('s-waddeg',Math.round(d.angle_apparent_deg)+'°');
+  }
+  if(d.direction_reelle_deg!=null){
+    elText('m-wtd',card(d.direction_reelle_deg));elText('m-wtddeg',Math.round(d.direction_reelle_deg)+'°');
+    elText('s-wtd',card(d.direction_reelle_deg));elText('s-wtddeg',Math.round(d.direction_reelle_deg)+'°');
+  }
+  elText('survAge','MAJ '+now());
+  const sd=document.getElementById('survDot');
+  if(sd)sd.className='mqtt-dot live';
 }
 function handleGPS(d){
   if(d.lat&&d.lon){
@@ -417,6 +532,18 @@ function handleGPS(d){
     elText('g-sog',d.sog_kt!=null?Number(d.sog_kt).toFixed(1):'—');
     elText('g-cog',d.cog_deg!=null?Math.round(d.cog_deg)+'°':'—');
     if(windyMap)windyMap.setView([d.lat,d.lon],windyMap.getZoom());
+    // Mise à jour page surveillance
+    elText('s-lat',d.lat+'°N');elText('s-lon',d.lon+'°E');
+    elText('s-sog',d.sog_kt!=null?Number(d.sog_kt).toFixed(1)+' kt':'— kt');
+    elText('s-cog',d.cog_deg!=null?Math.round(d.cog_deg)+'°':'—°');
+    // Déplacer le marqueur sur la carte surv
+    if(survMap&&survMarker){
+      survMarker.setLatLng([d.lat,d.lon]);
+      survMap.setView([d.lat,d.lon],survMap.getZoom());
+    } else if(survMap){
+      const icon=L.divIcon({html:'⛵',className:'',iconSize:[24,24],iconAnchor:[12,12]});
+      survMarker=L.marker([d.lat,d.lon],{icon}).addTo(survMap);
+    }
   }
 }
 function setMqttDot(s){document.getElementById('mqttDot').className='mqtt-dot'+(s==='live'?' live':s==='err'?' err':'')}
@@ -665,6 +792,35 @@ function drawCompass(dir,spd){
   ctx.beginPath();ctx.arc(cx,cy,5,0,Math.PI*2);ctx.fillStyle='#061524';ctx.fill();ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.stroke();
 }
 
+/* ═══════════ NAVIGATION ONGLETS ═══════════ */
+function showPage(p){
+  document.querySelectorAll('.page').forEach(el=>el.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(el=>el.classList.remove('active'));
+  document.getElementById('page-'+p).classList.add('active');
+  document.querySelector(`.nav-tab[onclick="showPage('${p}')"]`).classList.add('active');
+  if(p==='surv')initSurvMap();
+}
+
+let survMap=null,survMarker=null;
+function initSurvMap(){
+  if(survMap)return;
+  const lat=LAT||41.38,lon=LON||9.16;
+  const container=document.getElementById('surv-map-container');
+  container.innerHTML='<div id="survMapEl" style="width:100%;height:100%"></div>';
+  // Utiliser Leaflet déjà chargé
+  if(typeof L==='undefined'){
+    container.innerHTML='<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-family:Share Tech Mono,monospace;font-size:11px">Carte non disponible</div>';
+    return;
+  }
+  survMap=L.map('survMapEl',{zoomControl:true}).setView([lat,lon],10);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+    attribution:'© OSM',maxZoom:18
+  }).addTo(survMap);
+  const icon=L.divIcon({html:'⛵',className:'',iconSize:[24,24],iconAnchor:[12,12]});
+  survMarker=L.marker([lat,lon],{icon}).addTo(survMap);
+  survMarker.bindPopup('<b>Marannah</b>').openPopup();
+}
+
 /* ═══════════ HELPERS ═══════════ */
 function beaufort(kt){if(kt<1)return 0;if(kt<4)return 1;if(kt<7)return 2;if(kt<11)return 3;if(kt<17)return 4;if(kt<22)return 5;if(kt<28)return 6;if(kt<34)return 7;if(kt<41)return 8;if(kt<48)return 9;if(kt<56)return 10;if(kt<64)return 11;return 12}
 function card(deg){if(deg==null)return'—';return['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'][Math.round(((deg%360)+360)%360/22.5)%16]}
@@ -680,4 +836,4 @@ HTMLEOF
 echo "OK - $(wc -c < /mnt/user-data/outputs/index.html) bytes"
 Sortie
 
-OK - 41018 bytes 
+OK - 41018 bytes
