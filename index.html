@@ -380,23 +380,28 @@ function connectMQTT(){
   if(mqttClient){try{mqttClient.end(true)}catch(e){}}
   setMqttDot('');
   try{
-    mqttClient=mqtt.connect({
-      hostname:HIVEMQ_HOST,port:HIVEMQ_PORT,protocol:'wss',path:'/',
+    // HiveMQ Cloud: WSS sans path explicite
+    const brokerUrl=`wss://${HIVEMQ_HOST}:${HIVEMQ_PORT}`;
+    mqttClient=mqtt.connect(brokerUrl,{
       clientId:'vf_web_'+Math.random().toString(36).substr(2,6),
       username:HIVEMQ_USER,password:HIVEMQ_PASS,
       keepalive:60,reconnectPeriod:8000,connectTimeout:12000,clean:true
     });
-  }catch(e){setMqttDot('err');return}
-  mqttClient.on('connect',()=>{setMqttDot('live');mqttClient.subscribe('bateau/#',{qos:1})});
+  }catch(e){setMqttDot('err');console.error('MQTT:',e);return}
+  mqttClient.on('connect',()=>{
+    setMqttDot('live');console.log('✅ MQTT connecté');
+    mqttClient.subscribe('bateau/#',{qos:1});
+  });
   mqttClient.on('message',(topic,payload)=>{
     try{
       const d=JSON.parse(payload.toString());
+      console.log('MQTT:',topic,d);
       if(topic==='bateau/vent')handleVent(d);
       if(topic==='bateau/gps')handleGPS(d);
       elText('mqttAge','MAJ '+now());
     }catch(e){}
   });
-  mqttClient.on('error',()=>setMqttDot('err'));
+  mqttClient.on('error',(e)=>{setMqttDot('err');console.error('MQTT err:',e)});
   mqttClient.on('reconnect',()=>setMqttDot(''));
   mqttClient.on('close',()=>setMqttDot(''));
 }
@@ -498,7 +503,7 @@ async function fetchMarine(){
 /* ═══════════ WINDY POINT FORECAST API ═══════════ */
 async function fetchWindyForecast(){
   try{
-    const body={lat:LAT,lon:LON,model:'ecmwf',parameters:['wind','windGust','waves','temp','precip'],levels:['surface'],key:WINDY_FORECAST_KEY};
+    const body={lat:LAT,lon:LON,model:'iconEu',parameters:['wind','windGust','temp','precip'],levels:['surface'],key:WINDY_FORECAST_KEY};
     const res=await fetch('https://api.windy.com/api/point-forecast/v2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     if(!res.ok){const txt=await res.text();console.error('Windy API',res.status,txt);throw new Error('Windy API '+res.status+' — '+txt.slice(0,120))}
     const data=await res.json();
