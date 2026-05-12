@@ -497,20 +497,10 @@ async function fetchMarine(){
   }catch{['wH','wP','wD','sH','sP','sD'].forEach(id=>elText(id,'N/A'))}
 }
 
-/* ═══════════ WINDY POINT FORECAST API ═══════════ */
+/* ═══════════ WINDY POINT FORECAST → Open-Meteo (plan gratuit) ═══════════ */
 async function fetchWindyForecast(){
-  try{
-    const body={lat:LAT,lon:LON,model:'iconEu',parameters:['wind','windGust','temp','precip'],levels:['surface'],key:WINDY_FORECAST_KEY};
-    const res=await fetch('https://api.windy.com/api/point-forecast/v2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!res.ok)throw new Error('Windy API '+res.status);
-    const data=await res.json();
-    fcData=data;
-    renderWindyCards(data);
-    renderFc('wind');
-  }catch(e){
-    console.warn('Windy Forecast:',e.message);
-    fetchForecastFallback();
-  }
+  // Point Forecast nécessite un plan Pro Windy — utilisation d'Open-Meteo gratuit
+  await fetchForecastFallback();
 }
 
 function renderWindyCards(data){
