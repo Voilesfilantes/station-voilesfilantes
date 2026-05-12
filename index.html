@@ -381,7 +381,7 @@ function connectMQTT(){
   if(mqttClient){try{mqttClient.end(true)}catch(e){}}
   setMqttDot('');
   try{
-    const brokerUrl=`wss://${HIVEMQ_HOST}:${HIVEMQ_PORT}`;
+    const brokerUrl=`wss://${HIVEMQ_HOST}:${HIVEMQ_PORT}/mqtt`;
     mqttClient=mqtt.connect(brokerUrl,{
       clientId:'vf_web_'+Math.random().toString(36).substr(2,6),
       username:HIVEMQ_USER,password:HIVEMQ_PASS,
