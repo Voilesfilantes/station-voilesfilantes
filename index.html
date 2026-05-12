@@ -234,7 +234,7 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
         </div>
         <div class="vrm-setup">
           <label>PROXY</label>
-          <input class="vi vi-proxy" id="vrmProxy" placeholder="https://mon-proxy.workers.dev/vrm" title="URL du proxy CORS (voir README)">
+          <input class="vi vi-proxy" id="vrmProxy" placeholder="https://vrm-proxy.xxx.workers.dev">
           <label>TOKEN</label>
           <input class="vi vi-token" id="vrmToken" type="password" placeholder="Personal Access Token">
           <button class="btn-gold" onclick="saveVRM()">Connecter</button>
@@ -334,6 +334,9 @@ body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradie
 
 <!-- Windy Plugins API -->
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- Leaflet 1.4.0 requis par Windy -->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.4.0/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.4.0/dist/leaflet.js"></script>
 <script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
 
 <script>
@@ -377,36 +380,25 @@ function connectMQTT(){
   if(mqttClient){try{mqttClient.end(true)}catch(e){}}
   setMqttDot('');
   try{
-    // HiveMQ Cloud utilise le path /mqtt (pas /) en WSS
-    const brokerUrl=`wss://${HIVEMQ_HOST}:${HIVEMQ_PORT}/mqtt`;
-    mqttClient=mqtt.connect(brokerUrl,{
+    mqttClient=mqtt.connect({
+      hostname:HIVEMQ_HOST,port:HIVEMQ_PORT,protocol:'wss',path:'/',
       clientId:'vf_web_'+Math.random().toString(36).substr(2,6),
       username:HIVEMQ_USER,password:HIVEMQ_PASS,
       keepalive:60,reconnectPeriod:8000,connectTimeout:12000,clean:true
     });
-  }catch(e){setMqttDot('err');console.error('MQTT connect error:',e);return}
-  mqttClient.on('connect',()=>{
-    setMqttDot('live');
-    console.log('MQTT connecté');
-    mqttClient.subscribe('bateau/#',{qos:1},(err)=>{
-      if(err)console.error('Subscribe error:',err);
-      else console.log('Abonné à bateau/#');
-    });
-  });
+  }catch(e){setMqttDot('err');return}
+  mqttClient.on('connect',()=>{setMqttDot('live');mqttClient.subscribe('bateau/#',{qos:1})});
   mqttClient.on('message',(topic,payload)=>{
     try{
-      const raw=payload.toString();
-      console.log('MQTT message:',topic,raw);
-      const d=JSON.parse(raw);
+      const d=JSON.parse(payload.toString());
       if(topic==='bateau/vent')handleVent(d);
       if(topic==='bateau/gps')handleGPS(d);
       elText('mqttAge','MAJ '+now());
-    }catch(e){console.error('MQTT parse error:',e)}
+    }catch(e){}
   });
-  mqttClient.on('error',(e)=>{setMqttDot('err');console.error('MQTT error:',e)});
-  mqttClient.on('reconnect',()=>{setMqttDot('');console.log('MQTT reconnexion…')});
+  mqttClient.on('error',()=>setMqttDot('err'));
+  mqttClient.on('reconnect',()=>setMqttDot(''));
   mqttClient.on('close',()=>setMqttDot(''));
-  mqttClient.on('offline',()=>setMqttDot('err'));
 }
 function handleVent(d){
   elText('m-was',d.vitesse_apparente_kt!=null?Number(d.vitesse_apparente_kt).toFixed(1):'—');
@@ -451,7 +443,10 @@ async function fetchVRM(){
   if(!proxy||!token)return;setVrmDot('');
   try{
     const h={'Authorization':'Token '+token,'Content-Type':'application/json'};
-    const diagRes=await fetch(`${proxy}?path=/installations/${VRM_SITE}/diagnostics?count=1000`,{headers:h});
+    // Construction URL : le proxy reçoit le path en query string
+    const diagUrl=`${proxy}?path=${encodeURIComponent('/installations/'+VRM_SITE+'/diagnostics?count=1000')}`;
+    console.log('VRM fetch:',diagUrl);
+    const diagRes=await fetch(diagUrl,{headers:h});
     if(!diagRes.ok)throw new Error('HTTP '+diagRes.status);
     const diag=((await diagRes.json())?.records?.data)||[];
     const find=(...keys)=>{for(const k of keys){const r=diag.find(d=>d.description?.toLowerCase().includes(k.toLowerCase()));if(r&&r.rawValue!=null)return r}return null};
@@ -464,16 +459,7 @@ async function fetchVRM(){
     setVRM('dc',dc,dc?Math.round(dc.rawValue):null);
     if(st){elText('v-st',st.formattedValue||st.rawValue);document.getElementById('vv-st').classList.add('live')}
     setVrmDot('live');elText('vrmAge','MAJ '+now());
-  }catch(err){
-    setVrmDot('err');
-    const msg=err.message||'Erreur inconnue';
-    elText('vrmAge',msg.slice(0,40));
-    console.error('VRM fetch error:',err);
-    if(msg.includes('Failed to fetch')||msg.includes('NetworkError')){
-      // Probablement un problème CORS ou proxy non configuré
-      elText('vrmAge','Proxy CORS requis – voir config');
-    }
-  }
+  }catch(err){setVrmDot('err');elText('vrmAge',err.message.slice(0,30))}
 }
 function setVRM(id,obj,val){if(!obj||val===null||isNaN(val))return;elText('v-'+id,val);document.getElementById('vv-'+id)?.classList.add('live')}
 function setVrmDot(s){document.getElementById('vrmDot').className='vrm-dot'+(s==='live'?' live':s==='err'?' err':'')}
@@ -514,7 +500,7 @@ async function fetchWindyForecast(){
   try{
     const body={lat:LAT,lon:LON,model:'ecmwf',parameters:['wind','windGust','waves','temp','precip'],levels:['surface'],key:WINDY_FORECAST_KEY};
     const res=await fetch('https://api.windy.com/api/point-forecast/v2',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
-    if(!res.ok)throw new Error('Windy API '+res.status);
+    if(!res.ok){const txt=await res.text();console.error('Windy API',res.status,txt);throw new Error('Windy API '+res.status+' — '+txt.slice(0,120))}
     const data=await res.json();
     fcData=data;
     renderWindyCards(data);
@@ -619,42 +605,45 @@ async function fetchForecastFallback(){
 }
 
 /* ═══════════ WINDY MAP (PLUGINS API) ═══════════ */
+let _windyRetry=0;
 function initWindyMap(){
   if(windyMap)return;
-  // Vérification protocole (file:// bloque Windy)
-  if(location.protocol==='file:'){
-    document.getElementById('windy-map').innerHTML=
-      '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#ff7b29;font-family:Share Tech Mono,monospace;font-size:12px;padding:20px;text-align:center">'
-      +'⚠ La carte Windy nécessite un serveur HTTP.<br><br>'
-      +'Lance : <code style="background:#09192a;padding:4px 8px;border-radius:3px">python3 -m http.server 8080</code><br>'
-      +'puis ouvre <code style="background:#09192a;padding:4px 8px;border-radius:3px">http://localhost:8080</code></div>';
-    return;
-  }
-  // Vérification que windyInit est chargé
   if(typeof windyInit!=='function'){
-    console.warn('windyInit non disponible — libBoot.js non chargé?');
-    document.getElementById('windy-map').innerHTML=
-      '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-family:Share Tech Mono,monospace;font-size:11px">'
-      +'Chargement Windy en cours…</div>';
-    setTimeout(initWindyMap,2000);
+    if(_windyRetry<5){
+      _windyRetry++;
+      console.log('windyInit pas encore dispo, retry',_windyRetry+'/5...');
+      setTimeout(initWindyMap,2500);
+    }else{
+      console.warn('windyInit toujours absent après 5 tentatives — fallback iframe');
+      _showWindyIframe();
+    }
     return;
   }
-  const options={key:WINDY_PLUGINS_KEY,lat:LAT,lon:LON,zoom:8,overlay:curOverlay,level:'surface',timestamp:Date.now(),hourFormat:'H',graticule:false,latlon:true};
+  const options={key:WINDY_PLUGINS_KEY,lat:LAT,lon:LON,zoom:8,overlay:curOverlay,
+    level:'surface',timestamp:Date.now(),hourFormat:'H',graticule:false,latlon:true};
   try{
     windyInit(options,windyAPI=>{
-      const{map,store,overlays}=windyAPI;
+      const{map,store}=windyAPI;
       windyMap=map;windyStore=store;
-      // Marker position
       L.circleMarker([LAT,LON],{radius:9,fillColor:'#00d4ff',color:'#fff',weight:2,fillOpacity:.95})
-        .bindTooltip('📍 Position').addTo(map);
-      console.log('Carte Windy initialisée');
+        .bindTooltip('⛵ Position').addTo(map);
+      console.log('✅ Carte Windy initialisée');
     });
   }catch(e){
-    console.error('Windy init error:',e);
-    document.getElementById('windy-map').innerHTML=
-      '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--red);font-family:Share Tech Mono,monospace;font-size:11px;padding:20px;text-align:center">'
-      +'Erreur Windy : '+e.message+'<br><br>Vérifiez que la clé API est enregistrée pour ce domaine sur developers.windy.com</div>';
+    console.error('Windy init error:',e.message);
+    // Fallback iframe si erreur Leaflet version ou clé invalide
+    _showWindyIframe();
   }
+}
+function _showWindyIframe(){
+  const lat=LAT||41.38,lon=LON||9.16;
+  const el=document.getElementById('windy-map');
+  el.style.height='560px';
+  el.innerHTML=`<iframe
+    src="https://embed.windy.com/embed2.html?lat=${lat}&lon=${lon}&zoom=8&level=surface&overlay=wind&product=ecmwf&menu=&message=true&marker=true&calendar=now&pressure=&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=%C2%B0C&radarRange=-1"
+    width="100%" height="100%" frameborder="0" allow="fullscreen"
+    style="border:0;display:block"></iframe>`;
+  console.log('✅ Windy iframe fallback chargée');
 }
 function setWindyOverlay(overlay){
   curOverlay=overlay;
