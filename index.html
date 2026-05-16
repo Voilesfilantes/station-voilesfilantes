@@ -977,7 +977,14 @@ function togglePlay(){
 
 /* ═══ WINDY API ═══ */
 function initWindy(){
-  if(!LAT || !window.windyInit || windyAPI) return;
+  if(!LAT) return;
+  // Si windyInit pas encore chargé, réessayer dans 500ms
+  if(!window.windyInit){
+    setTimeout(initWindy, 500);
+    return;
+  }
+  if(windyAPI) return; // déjà initialisé
+
   windyInit({
     key:     CFG.WINDY_KEY,
     verbose: false,
@@ -992,7 +999,6 @@ function initWindy(){
     windyAPI   = api;
     windyStore = api.store;
 
-    // Marqueur bateau sur la carte Windy
     var wmap = api.map;
     var icon = L.divIcon({
       html:'<div style="width:14px;height:14px;background:#ffbe33;border:2px solid #fff;border-radius:50%;box-shadow:0 0 12px #ffbe33"></div>',
