@@ -8,7 +8,6 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
-  <!-- PAS de mqtt.js ici — chargé à la demande uniquement -->
   <style>
     :root{
       --bg:#030c17;--p1:#061524;--p2:#09192a;--bd:#0e2840;--bdhi:#1a3d5e;
@@ -18,41 +17,32 @@
     }
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     body{background:var(--bg);color:var(--text);font-family:'Barlow Condensed',sans-serif;min-height:100vh}
+    body::after{content:'';position:fixed;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,212,255,.01) 2px,rgba(0,212,255,.01) 4px);pointer-events:none;z-index:9999}
 
-    /* HEADER */
     .hdr{background:#06121e;border-bottom:1px solid var(--bd);padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px;position:sticky;top:0;z-index:200}
     .brand{font-family:'Orbitron',monospace;font-size:13px;font-weight:900;color:var(--white);letter-spacing:.12em}
     .brand-sub{font-size:10px;color:var(--muted)}
     .hgeo-c{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--cdim);text-align:center}
     .hgeo-s{font-size:10px;text-align:center;margin-top:2px}
-    .dot{width:8px;height:8px;border-radius:50%;background:var(--yellow);display:inline-block}
-    .dot.live{background:var(--green);animation:blink 2s infinite}
-    .dot.err{background:var(--red)}
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--yellow);display:inline-block;box-shadow:0 0 6px var(--yellow)}
+    .dot.live{background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 2s infinite}
+    .dot.err{background:var(--red);box-shadow:0 0 5px var(--red)}
     @keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
 
     .main{max-width:1200px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:16px}
 
-    /* SECTION TITLE */
     .sh{font-family:'Orbitron',monospace;font-size:10px;font-weight:600;color:var(--muted);letter-spacing:.2em;text-transform:uppercase;display:flex;align-items:center;gap:10px;margin-bottom:10px}
     .sh::after{content:'';flex:1;height:1px;background:var(--bd)}
-
-    /* CARD */
     .card{background:var(--p1);border:1px solid var(--bd);border-radius:4px;padding:16px}
-    .card-gold{background:var(--p1);border:1px solid #2a3e10;border-left:3px solid var(--gold);border-radius:4px;padding:16px}
+    .card-gold{background:var(--p1);border:1px solid #2a3010;border-left:3px solid var(--gold);border-radius:4px;padding:16px}
     .card-cyan{background:var(--p1);border:1px solid var(--bdhi);border-left:3px solid var(--cyan);border-radius:4px;padding:16px}
 
-    /* FORM */
     .form-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
     .form-row label{font-size:12px;color:var(--muted);min-width:60px}
-    input[type=text],input[type=password]{
-      background:rgba(0,0,0,.4);border:1px solid var(--bdhi);color:var(--white);
-      padding:8px 12px;font-family:'Share Tech Mono',monospace;font-size:12px;
-      border-radius:3px;outline:none;flex:1;min-width:180px;max-width:400px;
-    }
+    input[type=text],input[type=password]{background:rgba(0,0,0,.4);border:1px solid var(--bdhi);color:var(--white);padding:8px 12px;font-family:'Share Tech Mono',monospace;font-size:12px;border-radius:3px;outline:none;flex:1;min-width:180px;max-width:420px}
     input[type=text]:focus,input[type=password]:focus{border-color:var(--gold)}
     input::placeholder{color:var(--muted)}
 
-    /* BUTTONS */
     .btn{display:inline-block;padding:8px 18px;font-family:'Barlow Condensed',sans-serif;font-size:14px;font-weight:600;letter-spacing:.06em;cursor:pointer;border-radius:3px;border:none;transition:all .2s}
     .btn-gold{background:rgba(255,176,32,.15);border:1px solid rgba(255,176,32,.5);color:var(--gold)}
     .btn-gold:hover{background:rgba(255,176,32,.28)}
@@ -61,48 +51,57 @@
     .btn-muted{background:transparent;border:1px solid var(--bd);color:var(--muted);font-size:12px;padding:6px 14px}
     .btn-muted:hover{border-color:var(--bdhi);color:var(--text)}
 
-    /* STATUS BADGE */
     .badge{display:inline-flex;align-items:center;gap:6px;font-family:'Share Tech Mono',monospace;font-size:11px}
-    .badge-dot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0}
-    .badge-dot.live{background:var(--green);animation:blink 2s infinite}
-    .badge-dot.err{background:var(--red)}
-    .badge-dot.warn{background:var(--yellow)}
+    .bdot{width:8px;height:8px;border-radius:50%;background:var(--muted);flex-shrink:0}
+    .bdot.live{background:var(--green);animation:blink 2s infinite}
+    .bdot.live-gold{background:var(--gold);box-shadow:0 0 6px var(--gold);animation:blink 2s infinite}
+    .bdot.err{background:var(--red)}
+    .bdot.warn{background:var(--yellow)}
 
-    /* ERREUR VISIBLE */
     .err-box{background:rgba(255,59,96,.08);border:1px solid rgba(255,59,96,.4);border-radius:3px;padding:10px 14px;font-family:'Share Tech Mono',monospace;font-size:11px;color:#ff8899;line-height:1.6;margin-top:10px}
     .ok-box{background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.3);border-radius:3px;padding:10px 14px;font-family:'Share Tech Mono',monospace;font-size:11px;color:#00cc66;line-height:1.6;margin-top:10px}
-    .info-box{background:rgba(0,212,255,.06);border:1px solid rgba(0,212,255,.25);border-radius:3px;padding:10px 14px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);line-height:1.8;margin-top:10px}
+    .info-box{background:rgba(0,212,255,.05);border:1px solid rgba(0,212,255,.2);border-radius:3px;padding:10px 14px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--text);line-height:1.8;margin-top:10px}
     .info-box code{background:rgba(0,0,0,.3);padding:1px 5px;border-radius:2px;color:var(--cyan)}
     .info-box a{color:var(--cdim);text-decoration:underline}
     .hidden{display:none!important}
 
-    /* GRILLE VRM */
+    /* VRM grid */
     .vrm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:14px}
-    .vc{background:var(--p2);border:1px solid rgba(255,176,32,.15);border-radius:3px;padding:10px 8px;text-align:center}
+    .vc{background:var(--p2);border:1px solid rgba(255,176,32,.12);border-radius:3px;padding:10px 8px;text-align:center;transition:border-color .3s}
     .vc.live{border-color:rgba(255,176,32,.4)}
     .vc-ic{font-size:16px;margin-bottom:3px}
     .vc-lb{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:3px}
     .vc-vl{font-family:'Orbitron',monospace;font-size:20px;font-weight:700;color:var(--gold);line-height:1}
     .vc-un{font-size:10px;color:var(--muted);margin-top:2px}
 
-    /* VENT */
+    /* Vent */
     .wind-row{display:grid;grid-template-columns:160px 1fr;gap:14px;margin-top:12px}
-    .compass-wrap{position:relative;width:150px;height:150px}
-    .compass-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
-    .wind-val{font-family:'Orbitron',monospace;font-size:36px;font-weight:900;color:var(--white);line-height:1}
-    .wind-unit{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);margin-top:2px}
-    .wind-bf{font-family:'Orbitron',monospace;font-size:9px;color:var(--cyan);background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2);border-radius:2px;padding:2px 5px;margin-top:3px}
-    .wind-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-content:center}
+    .cw{position:relative;width:150px;height:150px}
+    .cc{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+    .wv{font-family:'Orbitron',monospace;font-size:36px;font-weight:900;color:var(--white);line-height:1}
+    .wu{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:.1em;margin-top:2px}
+    .bfb{font-family:'Orbitron',monospace;font-size:9px;color:var(--cyan);background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2);border-radius:2px;padding:2px 5px;margin-top:3px}
+    .wcards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;align-content:center}
     .wc{background:var(--p2);border:1px solid var(--bd);border-radius:3px;padding:10px;text-align:center}
     .wc-l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
     .wc-v{font-family:'Orbitron',monospace;font-size:22px;font-weight:700;color:var(--cyan);margin-top:3px;line-height:1}
     .wc-u{font-size:10px;color:var(--muted);margin-top:2px}
 
-    /* METEO GRID */
-    .meteo-row{display:grid;grid-template-columns:180px 1fr;gap:12px}
-    .meteo-compass-panel{padding:12px;display:flex;flex-direction:column;align-items:center;gap:8px}
-    .cond-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;padding:12px}
-    .cc{background:var(--p2);border:1px solid var(--bd);border-radius:3px;padding:10px}
+    /* Météo */
+    .mrow{display:grid;grid-template-columns:180px 1fr;gap:12px}
+    .mpan{padding:12px;display:flex;flex-direction:column;align-items:center;gap:8px}
+    .cw2{position:relative;width:140px;height:140px}
+    .cc2{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;pointer-events:none}
+    .wv2{font-family:'Orbitron',monospace;font-size:28px;font-weight:900;color:var(--white);line-height:1}
+    .wu2{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:.1em;margin-top:2px}
+    .bfb2{font-family:'Orbitron',monospace;font-size:9px;color:var(--cyan);background:rgba(0,212,255,.1);border:1px solid rgba(0,212,255,.2);border-radius:2px;padding:2px 5px;margin-top:3px}
+    .ws2{width:100%;display:grid;grid-template-columns:1fr 1fr;gap:6px}
+    .wsc2{background:var(--p2);border:1px solid var(--bd);border-radius:3px;padding:7px 8px;text-align:center}
+    .wsc2-l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+    .wsc2-v{font-family:'Orbitron',monospace;font-size:17px;font-weight:700;color:var(--cyan);line-height:1.2;margin-top:2px}
+    .wsc2-u{font-size:9px;color:var(--muted)}
+    .cgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;padding:12px}
+    .cc-card{background:var(--p2);border:1px solid var(--bd);border-radius:3px;padding:10px}
     .cc-ic{font-size:15px;margin-bottom:3px}
     .cc-lb{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
     .cc-vl{font-family:'Orbitron',monospace;font-size:20px;font-weight:700;color:var(--white);line-height:1;margin-top:2px}
@@ -111,15 +110,15 @@
     .pbar{height:3px;background:var(--bd);border-radius:2px;margin-top:5px}
     .pbar-f{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--green),var(--cyan),var(--orange));transition:width 1s}
 
-    /* MARINE */
-    .marine-grid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+    /* Marine */
+    .mgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
     .mc{background:var(--p1);border:1px solid var(--bd);border-radius:3px;padding:10px 8px;text-align:center}
     .mc-ic{font-size:17px;margin-bottom:4px}
     .mc-lb{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.07em;margin-bottom:3px}
     .mc-vl{font-family:'Orbitron',monospace;font-size:16px;font-weight:700;color:var(--cyan)}
     .mc-un{font-size:10px;color:var(--muted);margin-top:2px}
 
-    /* RADAR */
+    /* Radar */
     .rtb{display:flex;align-items:center;gap:7px;margin-bottom:8px;flex-wrap:wrap}
     .rtl{display:flex;gap:3px;overflow-x:auto;scrollbar-width:none;flex:1}
     .rtl::-webkit-scrollbar{display:none}
@@ -128,9 +127,9 @@
     .tlb.ncast{border-style:dashed}
     #radarMap{height:320px;border-radius:2px;border:1px solid var(--bd)}
 
-    /* TABS */
+    /* Tabs */
     .tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:10px}
-    .tab{background:transparent;border:1px solid var(--bd);color:var(--muted);padding:5px 12px;font-family:'Barlow Condensed',sans-serif;font-size:12px;cursor:pointer;border-radius:2px}
+    .tab{background:transparent;border:1px solid var(--bd);color:var(--muted);padding:4px 11px;font-family:'Barlow Condensed',sans-serif;font-size:12px;cursor:pointer;border-radius:2px}
     .tab:hover{border-color:var(--bdhi);color:var(--text)}
     .tab.on{background:rgba(0,212,255,.1);border-color:var(--cdim);color:var(--cyan)}
     .tab.arome.on{background:rgba(0,255,136,.07);border-color:#00aa55;color:var(--green)}
@@ -152,21 +151,18 @@
     .bf-9,.bf-10,.bf-11,.bf-12{color:var(--red)!important}
 
     @media(max-width:800px){
-      .meteo-row,.wind-row{grid-template-columns:1fr}
-      .marine-grid{grid-template-columns:repeat(3,1fr)}
-      .wind-cards{grid-template-columns:repeat(2,1fr)}
+      .mrow,.wind-row{grid-template-columns:1fr}
+      .mgrid{grid-template-columns:repeat(3,1fr)}
+      .wcards{grid-template-columns:repeat(2,1fr)}
       .vrm-grid{grid-template-columns:repeat(3,1fr)}
     }
-    @media(max-width:500px){
-      .cond-grid,.marine-grid{grid-template-columns:repeat(2,1fr)}
-    }
+    @media(max-width:500px){.cgrid,.mgrid{grid-template-columns:repeat(2,1fr)}}
     .leaflet-control-attribution{background:rgba(6,21,36,.85)!important;color:var(--muted)!important;font-size:9px!important}
     .leaflet-control-zoom a{background:var(--p1)!important;color:var(--cyan)!important;border-color:var(--bd)!important}
   </style>
 </head>
 <body>
 
-<!-- HEADER -->
 <header class="hdr">
   <div>
     <div class="brand">⚓ MARANNAH</div>
@@ -184,52 +180,42 @@
 
 <div class="main">
 
-  <!-- ══════════════════════════════
-       1. CONFIGURATION VRM
-  ══════════════════════════════ -->
+  <!-- ══ VRM ══ -->
   <div>
-    <div class="sh">⚡ Connexion VRM Victron</div>
+    <div class="sh">⚡ Cerbo GX · Victron VRM</div>
     <div class="card-gold">
-
-      <!-- Formulaire toujours visible -->
       <div class="form-row">
         <label>ID site :</label>
         <input type="text" id="vrmSite" value="821412" style="max-width:110px">
         <label>Token :</label>
-        <input type="password" id="vrmToken" placeholder="Personal Access Token">
-        <button class="btn btn-gold" onclick="connectVRM()">▶ Connecter VRM</button>
-        <button class="btn btn-muted" onclick="clearVRM()">✕ Reset</button>
+        <input type="password" id="vrmToken" placeholder="Personal Access Token VRM">
+        <button class="btn btn-gold" onclick="connectVRM()">▶ Connecter</button>
+        <button class="btn btn-muted" onclick="clearVRM()">✕</button>
+        <a href="https://vrm.victronenergy.com/installation/821412/dashboard" target="_blank"
+           style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--cdim);text-decoration:underline;margin-left:6px">↗ VRM</a>
       </div>
-
-      <!-- Aide token -->
-      <div class="info-box">
-        📋 <b>Obtenir le token :</b>
-        <a href="https://vrm.victronenergy.com" target="_blank">vrm.victronenergy.com</a>
-        → clic sur ton avatar (haut droite) → <b>Preferences</b> → <b>Personal Access Tokens</b> → <b>Add token</b><br>
-        Donner un nom (ex: <code>station</code>) → copier le token → coller ci-dessus → <b>Connecter VRM</b>
+      <div class="info-box" style="margin-bottom:0">
+        Token : <a href="https://vrm.victronenergy.com" target="_blank">vrm.victronenergy.com</a>
+        → avatar (haut droite) → <b>Preferences</b> → <b>Personal Access Tokens</b> → <b>Add token</b>
       </div>
-
-      <!-- Messages de retour -->
       <div id="vrmMsg" class="hidden"></div>
-
-      <!-- Status + données -->
-      <div id="vrmStatus" class="hidden" style="margin-top:10px">
+      <div id="vrmStatus" class="hidden" style="margin-top:12px">
         <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
           <div class="badge">
-            <div class="badge-dot" id="vrmDot"></div>
-            <span id="vrmStatusTxt">—</span>
+            <div class="bdot" id="vdot"></div>
+            <span id="vStatusTxt" style="color:var(--muted)">—</span>
           </div>
-          <div style="display:flex;gap:8px">
-            <button class="btn btn-muted" onclick="fetchVRM()">↻ Rafraîchir</button>
-            <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);align-self:center" id="vrmAge">—</span>
+          <div style="display:flex;gap:8px;align-items:center">
+            <button class="btn btn-muted" onclick="fetchVRM()" style="padding:4px 10px;font-size:12px">↻</button>
+            <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)" id="vAge">—</span>
           </div>
         </div>
-        <div class="vrm-grid" id="vrmGrid">
+        <div class="vrm-grid">
           <div class="vc" id="vc-bat"><div class="vc-ic">🔋</div><div class="vc-lb">Batterie</div><div class="vc-vl" id="vv-bat">—</div><div class="vc-un">%</div></div>
           <div class="vc" id="vc-bv"> <div class="vc-ic">⚡</div><div class="vc-lb">Tension</div><div class="vc-vl" id="vv-bv">—</div><div class="vc-un">V</div></div>
           <div class="vc" id="vc-pv"> <div class="vc-ic">☀️</div><div class="vc-lb">Solaire</div><div class="vc-vl" id="vv-pv">—</div><div class="vc-un">W</div></div>
           <div class="vc" id="vc-ac"> <div class="vc-ic">🔌</div><div class="vc-lb">Conso AC</div><div class="vc-vl" id="vv-ac">—</div><div class="vc-un">W</div></div>
-          <div class="vc" id="vc-dc"> <div class="vc-ic">💡</div><div class="vc-lb">Conso DC</div><div class="vc-vl" id="vv-dc">—</div><div class="vc-un">W</div></div>
+          <div class="vc" id="vc-dc"> <div class="vc-ic">🔋</div><div class="vc-lb">Bat. Power</div><div class="vc-vl" id="vv-dc">—</div><div class="vc-un">W</div></div>
           <div class="vc" id="vc-sog"><div class="vc-ic">📍</div><div class="vc-lb">SOG</div><div class="vc-vl" id="vv-sog">—</div><div class="vc-un">kt</div></div>
           <div class="vc" id="vc-cog"><div class="vc-ic">🗺️</div><div class="vc-lb">COG</div><div class="vc-vl" id="vv-cog">—</div><div class="vc-un">°</div></div>
           <div class="vc" id="vc-dep"><div class="vc-ic">⚓</div><div class="vc-lb">Profondeur</div><div class="vc-vl" id="vv-dep">—</div><div class="vc-un">m</div></div>
@@ -239,13 +225,10 @@
     </div>
   </div>
 
-  <!-- ══════════════════════════════
-       2. VENT BATEAU — MQTT
-  ══════════════════════════════ -->
+  <!-- ══ VENT MQTT ══ -->
   <div>
-    <div class="sh">💨 Vent bateau · Signal K → MQTT HiveMQ</div>
+    <div class="sh">💨 Vent bateau · Signal K → MQTT</div>
     <div class="card-cyan">
-
       <div class="form-row">
         <label>Topic :</label>
         <input type="text" id="mqttTopic" value="voilesfilantes/vent" style="max-width:220px">
@@ -254,93 +237,84 @@
         <button class="btn btn-cyan" onclick="connectMQTT()">⚡ Connecter MQTT</button>
         <button class="btn btn-muted" onclick="disconnectMQTT()">✕</button>
       </div>
-
-      <div class="badge" style="margin-bottom:10px">
-        <div class="badge-dot" id="mqttDot"></div>
-        <span id="mqttStatusTxt" style="color:var(--muted)">Non connecté — RPi Signal K doit être allumé</span>
+      <div class="badge" style="margin-bottom:12px">
+        <div class="bdot" id="mdot"></div>
+        <span id="mStatusTxt" style="color:var(--muted)">Non connecté — RPi Signal K doit être allumé</span>
       </div>
-
       <div class="wind-row">
         <div style="display:flex;flex-direction:column;align-items:center;gap:8px">
           <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase">Vent apparent</div>
-          <div class="compass-wrap">
+          <div class="cw">
             <canvas id="compassMQTT" width="150" height="150"></canvas>
-            <div class="compass-center">
-              <div class="wind-val" id="mqttWS">—</div>
-              <div class="wind-unit">NŒUDS</div>
-              <div class="wind-bf" id="mqttBF">— BF</div>
+            <div class="cc">
+              <div class="wv" id="mqttWS">—</div>
+              <div class="wu">NŒUDS</div>
+              <div class="bfb" id="mqttBF">— BF</div>
             </div>
           </div>
         </div>
-        <div class="wind-cards">
-          <div class="wc"><div class="wc-l">Direction</div><div class="wc-v" style="font-size:17px" id="mqttDir">—</div><div class="wc-u" id="mqttDirDeg">—</div></div>
-          <div class="wc"><div class="wc-l">Vent réel TWS</div><div class="wc-v" id="mqttTWS">—</div><div class="wc-u">kt</div></div>
-          <div class="wc"><div class="wc-l">MAJ</div><div class="wc-v" style="font-size:12px" id="mqttAge">—</div><div class="wc-u">Signal K</div></div>
+        <div class="wcards">
+          <div class="wc"><div class="wc-l">Direction</div><div class="wc-v" style="font-size:17px" id="mqttDir">—</div><div class="wc-u" id="mqttDirD">—</div></div>
+          <div class="wc"><div class="wc-l">TWS réel</div><div class="wc-v" id="mqttTWS">—</div><div class="wc-u">kt</div></div>
+          <div class="wc"><div class="wc-l">MAJ</div><div class="wc-v" style="font-size:12px" id="mqttAge">—</div><div class="wc-u">live</div></div>
         </div>
       </div>
-
-      <!-- Guide Node-RED replié -->
       <details style="margin-top:14px">
-        <summary style="cursor:pointer;font-family:'Orbitron',monospace;font-size:10px;color:var(--cdim);letter-spacing:.15em;padding:6px 0">
-          ⚙ GUIDE NODE-RED (cliquer pour ouvrir)
-        </summary>
+        <summary style="cursor:pointer;font-family:'Orbitron',monospace;font-size:10px;color:var(--cdim);letter-spacing:.15em;padding:6px 0">⚙ GUIDE NODE-RED</summary>
         <div class="info-box" style="margin-top:8px">
-          <b>1. Ouvrir Node-RED :</b> <code>http://[IP_DU_RPI]:1880</code><br>
-          <b>2. Menu ☰ → Import → coller ce JSON :</b><br>
-          <textarea id="flowJson" readonly onclick="this.select();document.execCommand('copy')" style="width:100%;height:90px;background:rgba(0,0,0,.4);border:1px solid var(--bd);color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:9px;padding:6px;border-radius:2px;resize:none;cursor:pointer;margin-top:4px" title="Cliquer pour tout sélectionner et copier">[{"id":"f1","type":"tab","label":"Vent MQTT"},{"id":"n1","type":"signalk-subscribe","z":"f1","name":"AWS m/s","path":"environment.wind.speedApparent","subscribe":true,"x":120,"y":80,"wires":[["n2"]]},{"id":"n2","type":"function","z":"f1","name":"→ kt + JSON","func":"msg.payload=JSON.stringify({aws:+(msg.payload*1.94384).toFixed(2),ts:Date.now()});return msg;","x":300,"y":80,"wires":[["n5"]]},{"id":"n3","type":"signalk-subscribe","z":"f1","name":"AWD rad","path":"environment.wind.angleApparent","subscribe":true,"x":120,"y":150,"wires":[["n4"]]},{"id":"n4","type":"function","z":"f1","name":"→ deg + JSON","func":"msg.payload=JSON.stringify({awd:Math.round(((msg.payload*180/Math.PI)+360)%360),ts:Date.now()});return msg;","x":300,"y":150,"wires":[["n6"]]},{"id":"n7","type":"signalk-subscribe","z":"f1","name":"TWS m/s","path":"environment.wind.speedTrue","subscribe":true,"x":120,"y":220,"wires":[["n8"]]},{"id":"n8","type":"function","z":"f1","name":"TWS JSON","func":"msg.payload=JSON.stringify({tws:+(msg.payload*1.94384).toFixed(2),ts:Date.now()});return msg;","x":300,"y":220,"wires":[["n9"]]},{"id":"n5","type":"mqtt out","z":"f1","name":"","topic":"voilesfilantes/vent","qos":"0","retain":"true","broker":"b1","x":480,"y":80,"wires":[]},{"id":"n6","type":"mqtt out","z":"f1","name":"","topic":"voilesfilantes/vent/direction","qos":"0","retain":"true","broker":"b1","x":480,"y":150,"wires":[]},{"id":"n9","type":"mqtt out","z":"f1","name":"","topic":"voilesfilantes/vent/tws","qos":"0","retain":"true","broker":"b1","x":480,"y":220,"wires":[]},{"id":"b1","type":"mqtt-broker","name":"HiveMQ","broker":"broker.hivemq.com","port":"1883","ssl":false,"clientid":"marannah_nr","keepalive":"60","cleansession":true}]</textarea>
-          <b>3. Deploy</b> → puis cliquer <b>⚡ Connecter MQTT</b> ci-dessus.<br><br>
-          ⚠ Si <code>signalk-subscribe</code> absent : Menu ☰ → <b>Manage palette</b> → Install → chercher <code>node-red-contrib-signalk-input</code>
+          <b>1.</b> Ouvrir Node-RED : <code>http://[IP_RPI]:1880</code><br>
+          <b>2.</b> Menu ☰ → Import → coller :<br>
+          <textarea readonly onclick="this.select()" style="width:100%;height:80px;background:rgba(0,0,0,.4);border:1px solid var(--bd);color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:9px;padding:6px;border-radius:2px;resize:none;cursor:pointer;margin-top:4px">[{"id":"f1","type":"tab","label":"Vent MQTT"},{"id":"n1","type":"signalk-subscribe","z":"f1","name":"AWS","path":"environment.wind.speedApparent","subscribe":true,"x":120,"y":80,"wires":[["n2"]]},{"id":"n2","type":"function","z":"f1","name":"m/s→kt","func":"msg.payload=JSON.stringify({aws:+(msg.payload*1.94384).toFixed(2),ts:Date.now()});return msg;","x":300,"y":80,"wires":[["n5"]]},{"id":"n3","type":"signalk-subscribe","z":"f1","name":"AWD","path":"environment.wind.angleApparent","subscribe":true,"x":120,"y":150,"wires":[["n4"]]},{"id":"n4","type":"function","z":"f1","name":"rad→deg","func":"msg.payload=JSON.stringify({awd:Math.round(((msg.payload*180/Math.PI)+360)%360),ts:Date.now()});return msg;","x":300,"y":150,"wires":[["n6"]]},{"id":"n7","type":"signalk-subscribe","z":"f1","name":"TWS","path":"environment.wind.speedTrue","subscribe":true,"x":120,"y":220,"wires":[["n8"]]},{"id":"n8","type":"function","z":"f1","name":"TWS","func":"msg.payload=JSON.stringify({tws:+(msg.payload*1.94384).toFixed(2),ts:Date.now()});return msg;","x":300,"y":220,"wires":[["n9"]]},{"id":"n5","type":"mqtt out","z":"f1","name":"","topic":"voilesfilantes/vent","qos":"0","retain":"true","broker":"b1","x":480,"y":80,"wires":[]},{"id":"n6","type":"mqtt out","z":"f1","name":"","topic":"voilesfilantes/vent/direction","qos":"0","retain":"true","broker":"b1","x":480,"y":150,"wires":[]},{"id":"n9","type":"mqtt out","z":"f1","name":"","topic":"voilesfilantes/vent/tws","qos":"0","retain":"true","broker":"b1","x":480,"y":220,"wires":[]},{"id":"b1","type":"mqtt-broker","name":"HiveMQ","broker":"broker.hivemq.com","port":"1883","ssl":false,"clientid":"marannah_nr","keepalive":"60","cleansession":true}]</textarea>
+          <b>3.</b> Deploy → Connecter MQTT ci-dessus.<br>
+          ⚠ Le RPi doit être allumé et connecté internet.
         </div>
       </details>
     </div>
   </div>
 
-  <!-- ══════════════════════════════
-       3. MÉTÉO OPEN-METEO
-  ══════════════════════════════ -->
+  <!-- ══ MÉTÉO ══ -->
   <div>
     <div class="sh">📡 Météo locale · Open-Meteo</div>
     <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:10px">
       <div class="badge">
-        <div class="badge-dot" id="meteoDot"></div>
-        <span id="meteoStatus" style="color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:11px">GPS en attente…</span>
+        <div class="bdot" id="meteoDot"></div>
+        <span id="meteoStatus" style="color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:11px">En attente du GPS…</span>
       </div>
-      <button class="btn btn-muted" onclick="loadMeteo()" style="font-size:11px;padding:5px 12px">↻ Charger météo</button>
+      <button class="btn btn-muted" onclick="loadMeteo()" style="font-size:11px;padding:5px 12px">↻ Recharger</button>
     </div>
-
-    <div class="meteo-row">
-      <div class="card meteo-compass-panel">
+    <div class="mrow">
+      <div class="card mpan">
         <div style="font-size:10px;color:var(--muted);letter-spacing:.1em;text-transform:uppercase;margin-bottom:8px">Vent modèle</div>
-        <div class="compass-wrap" style="width:140px;height:140px">
+        <div class="cw2">
           <canvas id="compassModel" width="140" height="140"></canvas>
-          <div class="compass-center">
-            <div class="wind-val" style="font-size:28px" id="windSpeed">—</div>
-            <div class="wind-unit">kt</div>
-            <div class="wind-bf" id="bfBadge">—</div>
+          <div class="cc2">
+            <div class="wv2" id="windSpeed">—</div>
+            <div class="wu2">kt</div>
+            <div class="bfb2" id="bfBadge">—</div>
           </div>
         </div>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;width:100%;margin-top:10px">
-          <div class="wc"><div class="wc-l">Rafales</div><div class="wc-v" style="font-size:17px" id="windGust">—</div><div class="wc-u">kt</div></div>
-          <div class="wc"><div class="wc-l">Dir.</div><div class="wc-v" style="font-size:14px" id="windDir">—</div></div>
+        <div class="ws2">
+          <div class="wsc2"><div class="wsc2-l">Rafales</div><div class="wsc2-v" id="windGust">—</div><div class="wsc2-u">kt</div></div>
+          <div class="wsc2"><div class="wsc2-l">Direction</div><div class="wsc2-v" style="font-size:13px" id="windDir">—</div></div>
         </div>
       </div>
       <div class="card" style="padding:0">
-        <div class="cond-grid">
-          <div class="cc"><div class="cc-ic">🌡️</div><div class="cc-lb">Température</div><div class="cc-vl" id="temp">—</div><div class="cc-un">°C</div><div class="cc-sb" id="feels">—</div></div>
-          <div class="cc"><div class="cc-ic">💧</div><div class="cc-lb">Humidité</div><div class="cc-vl" id="hum">—</div><div class="cc-un">%</div></div>
-          <div class="cc"><div class="cc-ic">⏲️</div><div class="cc-lb">Pression</div><div class="cc-vl" style="font-size:17px" id="pres">—</div><div class="cc-un">hPa</div><div class="pbar"><div class="pbar-f" id="pbar" style="width:50%"></div></div></div>
-          <div class="cc"><div class="cc-ic">☁️</div><div class="cc-lb">Nuages</div><div class="cc-vl" id="cloud">—</div><div class="cc-un">%</div></div>
-          <div class="cc"><div class="cc-ic">👁️</div><div class="cc-lb">Visibilité</div><div class="cc-vl" style="font-size:17px" id="vis">—</div><div class="cc-un" id="visU">km</div></div>
-          <div class="cc"><div class="cc-ic">☀️</div><div class="cc-lb">UV</div><div class="cc-vl" id="uv">—</div></div>
+        <div class="cgrid">
+          <div class="cc-card"><div class="cc-ic">🌡️</div><div class="cc-lb">Température</div><div class="cc-vl" id="temp">—</div><div class="cc-un">°C</div><div class="cc-sb" id="feels">—</div></div>
+          <div class="cc-card"><div class="cc-ic">💧</div><div class="cc-lb">Humidité</div><div class="cc-vl" id="hum">—</div><div class="cc-un">%</div></div>
+          <div class="cc-card"><div class="cc-ic">⏲️</div><div class="cc-lb">Pression</div><div class="cc-vl" style="font-size:17px" id="pres">—</div><div class="cc-un">hPa</div><div class="pbar"><div class="pbar-f" id="pbar" style="width:50%"></div></div></div>
+          <div class="cc-card"><div class="cc-ic">☁️</div><div class="cc-lb">Nuages</div><div class="cc-vl" id="cloud">—</div><div class="cc-un">%</div></div>
+          <div class="cc-card"><div class="cc-ic">👁️</div><div class="cc-lb">Visibilité</div><div class="cc-vl" style="font-size:17px" id="vis">—</div><div class="cc-un" id="visU">km</div></div>
+          <div class="cc-card"><div class="cc-ic">☀️</div><div class="cc-lb">UV</div><div class="cc-vl" id="uv">—</div></div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- MARINE -->
+  <!-- ══ MARINE ══ -->
   <div>
     <div class="sh">🌊 État de la mer</div>
-    <div class="marine-grid">
+    <div class="mgrid">
       <div class="mc"><div class="mc-ic">🌊</div><div class="mc-lb">Vagues Hm0</div><div class="mc-vl" id="wH">—</div><div class="mc-un">m</div></div>
       <div class="mc"><div class="mc-ic">⏱️</div><div class="mc-lb">Période Tp</div><div class="mc-vl" id="wP">—</div><div class="mc-un">s</div></div>
       <div class="mc"><div class="mc-ic">🧭</div><div class="mc-lb">Dir. vagues</div><div class="mc-vl" style="font-size:13px" id="wD">—</div><div class="mc-un" id="wDd">—</div></div>
@@ -350,7 +324,7 @@
     </div>
   </div>
 
-  <!-- RADAR -->
+  <!-- ══ RADAR ══ -->
   <div>
     <div class="sh">📡 Radar · Précipitations &amp; Satellite</div>
     <div class="card" style="padding:10px">
@@ -373,7 +347,7 @@
     </div>
   </div>
 
-  <!-- PRÉVISIONS -->
+  <!-- ══ PRÉVISIONS ══ -->
   <div>
     <div class="sh">📅 Prévisions 5 jours</div>
     <div class="card fcp">
@@ -386,13 +360,13 @@
     </div>
   </div>
 
-  <!-- WINDY -->
+  <!-- ══ WINDY ══ -->
   <div>
     <div class="sh">🌀 Prévisions Windy</div>
     <div class="tabs">
       <button class="tab on"    id="wm-ecmwf" onclick="switchModel('ecmwf')">ECMWF · 9km</button>
       <button class="tab arome" id="wm-arome" onclick="switchModel('arome')">🇫🇷 AROME · 1.3km</button>
-      <button class="tab gfs"   id="wm-gfs"   onclick="switchModel('gfs')">GFS</button>
+      <button class="tab gfs"   id="wm-gfs"   onclick="switchModel('gfs')">GFS · NOAA</button>
       <button class="tab mfwam" id="wm-mfwam" onclick="switchModel('mfwam')">MF-WAM Vagues</button>
     </div>
     <div class="wbox" id="windyBox">
@@ -402,66 +376,67 @@
     </div>
   </div>
 
-</div><!-- /main -->
+</div>
 
 <script>
-/* ══════════════════════════════════════
-   STATE — tout en variables globales simples
-══════════════════════════════════════ */
-var LAT = null, LON = null, gpsSource = 'none';
-var MAP = null, rainLayer = null, satLayer = null;
-var rainFrames = [], satFrames = [], curFrame = 0;
-var radarMode = 'rain', playing = false, playTimer = null;
-var fcData = null, fcChart = null;
-var mqttClient = null;
-var vrmTimer = null;
-var mqttWS = null, mqttAWD = null;
-var mqttLoaded = false;
+/* ═══════ CONFIG ═══════ */
+var VRM_PROXY = 'https://stationvrm.marannahsail.workers.dev/v2';
 
-/* ══════════════════════════════════════
-   DÉMARRAGE — GPS d'abord
-══════════════════════════════════════ */
+/* ═══════ STATE ═══════ */
+var LAT=null,LON=null,gpsSource='none';
+var MAP=null,rainLayer=null,satLayer=null;
+var rainFrames=[],satFrames=[],curFrame=0;
+var radarMode='rain',playing=false,playTimer=null;
+var fcData=null,fcChart=null;
+var mqttClient=null,mqttLoaded=false;
+var mqttWS=null,mqttAWD=null;
+var vrmTimer=null;
+
+/* ═══════ DÉMARRAGE ═══════ */
 window.onload = function() {
-  // Restaurer les champs sauvegardés
-  var savedToken = localStorage.getItem('vrm_token') || '';
-  var savedSite  = localStorage.getItem('vrm_site')  || '821412';
-  document.getElementById('vrmToken').value = savedToken;
-  document.getElementById('vrmSite').value  = savedSite;
+  var t = localStorage.getItem('vrm_token') || '';
+  var s = localStorage.getItem('vrm_site')  || '821412';
+  document.getElementById('vrmToken').value = t;
+  document.getElementById('vrmSite').value  = s;
+  var mt = localStorage.getItem('mqtt_topic') || 'voilesfilantes/vent';
+  var mh = localStorage.getItem('mqtt_host')  || 'broker.hivemq.com';
+  document.getElementById('mqttTopic').value = mt;
+  document.getElementById('mqttHost').value  = mh;
 
-  var savedTopic = localStorage.getItem('mqtt_topic') || 'voilesfilantes/vent';
-  var savedHost  = localStorage.getItem('mqtt_host')  || 'broker.hivemq.com';
-  document.getElementById('mqttTopic').value = savedTopic;
-  document.getElementById('mqttHost').value  = savedHost;
+  // GPS → VRM en priorité, sinon navigateur
+  if (t) { getGPSFromVRM(t, s); }
+  else    { tryBrowserGPS(); }
 
-  // GPS
-  getGPS();
+  // Auto-reconnect MQTT
+  if (localStorage.getItem('mqtt_auto') === '1') connectMQTT();
 };
 
-function getGPS() {
-  // 1. Essayer VRM GPS (position bateau)
-  var token = localStorage.getItem('vrm_token');
-  var site  = localStorage.getItem('vrm_site') || '821412';
-  if (token) {
-    fetch('https://stationvrm.marannahsail.workers.dev/v2/installations/' + site + '/gps', {
-      headers: { 'x-authorization': 'Token ' + token }
-    })
-    .then(function(r) { return r.json(); })
-    .then(function(d) {
-      var lat = parseFloat((d && d.records && d.records.lat) || (d && d.lat) || 0);
-      var lng = parseFloat((d && d.records && d.records.lng) || (d && d.lng) || 0);
-      if (lat && lng) {
-        LAT = +lat.toFixed(5); LON = +lng.toFixed(5);
-        gpsSource = 'vrm';
-        setGPS(lat.toFixed(4)+'°N  '+lng.toFixed(4)+'°E', '⚓ GPS Bateau · VRM', '#ffb020');
-        afterGPS();
-      } else {
-        tryBrowserGPS();
-      }
-    })
-    .catch(function() { tryBrowserGPS(); });
-  } else {
-    tryBrowserGPS();
-  }
+/* ═══════ GPS ═══════ */
+function getGPSFromVRM(token, site) {
+  fetch(VRM_PROXY + '/installations/' + site + '/diagnostics?count=500', {
+    headers: { 'x-authorization': 'Token ' + token }
+  })
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    var recs = d.records || [];
+    var latR = null, lngR = null;
+    for (var i = 0; i < recs.length; i++) {
+      var desc = (recs[i].description || '').toLowerCase();
+      if (desc === 'latitude')  latR = recs[i];
+      if (desc === 'longitude') lngR = recs[i];
+    }
+    var lat = latR ? parseFloat(latR.rawValue) : 0;
+    var lng = lngR ? parseFloat(lngR.rawValue) : 0;
+    if (lat && lng) {
+      LAT = +lat.toFixed(5); LON = +lng.toFixed(5);
+      gpsSource = 'vrm';
+      setGPS(LAT + '°N  ' + LON + '°E', '⚓ GPS Bateau · Cerbo GX', '#ffb020');
+      afterGPS();
+    } else {
+      tryBrowserGPS();
+    }
+  })
+  .catch(function() { tryBrowserGPS(); });
 }
 
 function tryBrowserGPS() {
@@ -471,7 +446,7 @@ function tryBrowserGPS() {
       LAT = +p.coords.latitude.toFixed(5);
       LON = +p.coords.longitude.toFixed(5);
       gpsSource = 'browser';
-      setGPS(LAT+'°N  '+LON+'°E', '📱 GPS navigateur (position téléphone)', '#6688aa');
+      setGPS(LAT + '°N  ' + LON + '°E', '📱 GPS navigateur (téléphone)', '#6688aa');
       afterGPS();
     },
     function() { useFallback(); },
@@ -480,56 +455,46 @@ function tryBrowserGPS() {
 }
 
 function useFallback() {
-  LAT = 41.3817; LON = 9.1594; gpsSource = 'default';
-  setGPS('41.3817°N  9.1594°E', '⚠ Position par défaut — Bonifacio', 'var(--muted)');
+  LAT = 41.3873; LON = 9.1599; gpsSource = 'default';
+  setGPS('41.3873°N  9.1599°E', '⚓ Bonifacio (GPS bateau par défaut)', '#ffb020');
   afterGPS();
 }
 
 function setGPS(coords, label, color) {
-  document.getElementById('geoC').textContent = coords;
-  document.getElementById('geoS').textContent = label;
-  document.getElementById('geoS').style.color = color;
+  T('geoC', coords);
+  var el = document.getElementById('geoS');
+  el.textContent = label; el.style.color = color;
 }
 
 function afterGPS() {
-  // Tout ce qui dépend du GPS
-  loadMeteo();
-  initMap();
-  loadRadar();
-  loadWindy('ecmwf');
+  loadMeteo(); initMap(); loadRadar(); loadWindy('ecmwf');
+  // Charger VRM si token présent
+  var token = localStorage.getItem('vrm_token');
+  if (token) {
+    fetchVRM();
+    if (vrmTimer) clearInterval(vrmTimer);
+    vrmTimer = setInterval(fetchVRM, 60000);
+  }
   document.getElementById('dotMain').className = 'dot live';
-  document.getElementById('lupd').textContent = 'MAJ ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  T('lupd', 'MAJ ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}));
 }
 
-/* ══════════════════════════════════════
-   VRM API
-══════════════════════════════════════ */
+/* ═══════ VRM ═══════ */
 function connectVRM() {
   var token = document.getElementById('vrmToken').value.trim();
   var site  = document.getElementById('vrmSite').value.trim() || '821412';
-
-  if (!token) {
-    showVrmMsg('err', '⚠ Token manquant — coller le Personal Access Token VRM ci-dessus.');
-    return;
-  }
-
+  if (!token) { showVrmMsg('err', '⚠ Coller le Personal Access Token VRM'); return; }
   localStorage.setItem('vrm_token', token);
-  localStorage.setItem('vrm_site', site);
-
-  showVrmMsg('info', '🔄 Connexion en cours…');
-  fetchVRM();
-
-  // Relancer le GPS avec le nouveau token
-  getGPS();
-
-  // Refresh auto 60s
+  localStorage.setItem('vrm_site',  site);
+  showVrmMsg('info', '🔄 Connexion…');
+  // Relancer GPS avec le nouveau token
+  getGPSFromVRM(token, site);
   if (vrmTimer) clearInterval(vrmTimer);
   vrmTimer = setInterval(fetchVRM, 60000);
 }
 
 function clearVRM() {
-  localStorage.removeItem('vrm_token');
-  localStorage.removeItem('vrm_site');
+  localStorage.removeItem('vrm_token'); localStorage.removeItem('vrm_site');
   document.getElementById('vrmToken').value = '';
   document.getElementById('vrmStatus').classList.add('hidden');
   document.getElementById('vrmMsg').classList.add('hidden');
@@ -541,116 +506,122 @@ function fetchVRM() {
   var site  = localStorage.getItem('vrm_site') || '821412';
   if (!token) return;
 
-  setVrmDot('warn');
-  document.getElementById('vrmAge').textContent = 'Chargement…';
+  setVdot('warn'); T('vAge', 'Chargement…');
 
-  fetch('https://stationvrm.marannahsail.workers.dev/v2/installations/' + site + '/diagnostics?count=1000', {
+  fetch(VRM_PROXY + '/installations/' + site + '/diagnostics?count=500', {
     headers: { 'x-authorization': 'Token ' + token }
   })
   .then(function(r) {
-    if (r.status === 401) throw new Error('Token invalide (401) — génère un nouveau token sur VRM → Preferences → Personal Access Tokens');
-    if (r.status === 403) throw new Error('Accès refusé (403) — vérifie les droits du token');
-    if (r.status === 404) throw new Error('Installation introuvable (404) — ID site = ' + site + ' est-il correct ?');
+    if (r.status === 401) throw new Error('Token invalide — regénère un token sur VRM → Preferences → Personal Access Tokens');
+    if (r.status === 403) throw new Error('Accès refusé (403)');
+    if (r.status === 404) throw new Error('Installation introuvable — ID site : ' + site);
     if (!r.ok) throw new Error('Erreur HTTP ' + r.status);
     return r.json();
   })
   .then(function(json) {
-    var diag = (json && json.records && json.records.data) || [];
+    var diag = json.records || [];
+    if (!diag.length) { showVrmMsg('warn','⚠ Cerbo hors ligne — aucune donnée'); return; }
 
-    if (diag.length === 0) {
-      showVrmMsg('warn', '⚠ Connecté mais aucune donnée reçue. Vérifie que le Cerbo GX envoie bien au VRM.');
-      return;
-    }
-
-    showVrmMsg('ok', '✓ Connecté — ' + diag.length + ' métriques reçues du Cerbo GX');
-    document.getElementById('vrmStatus').classList.remove('hidden');
-    setVrmDot('live');
-    document.getElementById('vrmAge').textContent = 'MAJ ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-
-    // Recherche souple dans les diagnostics
+    // Recherche par description (exact puis partiel)
     function find() {
-      var keywords = Array.prototype.slice.call(arguments);
-      for (var ki = 0; ki < keywords.length; ki++) {
-        var kw = keywords[ki].toLowerCase();
+      var kws = Array.prototype.slice.call(arguments);
+      for (var k = 0; k < kws.length; k++) {
+        var kw = kws[k].toLowerCase();
         for (var i = 0; i < diag.length; i++) {
-          var desc = (diag[i].description || '').toLowerCase();
-          if (desc.indexOf(kw) !== -1 && diag[i].rawValue != null) return diag[i];
+          if ((diag[i].description||'').toLowerCase() === kw && diag[i].rawValue != null)
+            return diag[i];
+        }
+        for (var i = 0; i < diag.length; i++) {
+          if ((diag[i].description||'').toLowerCase().indexOf(kw) !== -1 && diag[i].rawValue != null)
+            return diag[i];
         }
       }
       return null;
     }
 
-    function setV(id, rec, transform) {
-      if (!rec) return;
-      var v = parseFloat(rec.rawValue);
-      if (isNaN(v)) return;
-      if (transform) v = transform(v);
-      document.getElementById('vv-' + id).textContent = v > 200 ? Math.round(v) : v.toFixed(1);
-      document.getElementById('vc-' + id).classList.add('live');
-    }
+    showVrmMsg('ok', '✓ Cerbo GX connecté — ' + diag.length + ' métriques');
+    document.getElementById('vrmStatus').classList.remove('hidden');
+    setVdot('live-gold');
+    T('vStatusTxt', 'Cerbo GX · en ligne');
+    T('vAge', 'MAJ ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}));
 
-    // Batterie
-    var bat = find('state of charge', 'soc', 'battery soc');
-    if (bat) {
-      var soc = Math.round(parseFloat(bat.rawValue));
-      document.getElementById('vv-bat').textContent = soc;
-      document.getElementById('vv-bat').style.color = soc > 60 ? 'var(--green)' : soc > 25 ? 'var(--yellow)' : 'var(--red)';
+    // Batterie SOC
+    var soc = find('Battery SOC', 'State of charge', 'VE.Bus hidden SOC');
+    if (soc) {
+      var sv = Math.round(parseFloat(soc.rawValue));
+      T('vv-bat', sv);
+      var el = document.getElementById('vv-bat');
+      el.style.color = sv > 60 ? 'var(--green)' : sv > 25 ? 'var(--yellow)' : 'var(--red)';
       document.getElementById('vc-bat').classList.add('live');
     }
 
-    setV('bv',  find('battery voltage'));
-    setV('pv',  find('pv power', 'solar power', 'charger power'), Math.round);
-    setV('ac',  find('ac consumption', 'ac load'),                Math.round);
-    setV('dc',  find('dc power', 'dc load', 'dc consumption'),    Math.round);
-    setV('dep', find('depth', 'water depth'));
-    setV('tmp', find('engine temperature', 'coolant'));
+    // Tension
+    var volt = find('Voltage');
+    if (volt) { T('vv-bv', parseFloat(volt.rawValue).toFixed(2)); document.getElementById('vc-bv').classList.add('live'); }
 
-    var sog = find('speed over ground', 'gps speed');
-    if (sog) {
-      var u = (sog.unit || '').toLowerCase();
-      var kt = (u.indexOf('m/s') !== -1 || u === 'ms') ? sog.rawValue * 1.94384 : sog.rawValue;
-      document.getElementById('vv-sog').textContent = kt.toFixed(1);
-      document.getElementById('vc-sog').classList.add('live');
-    }
+    // Solaire — PV DC-coupled est le total
+    var pv = find('PV - DC-coupled', 'PV power', 'Battery watts');
+    if (pv) { T('vv-pv', Math.round(parseFloat(pv.rawValue))); document.getElementById('vc-pv').classList.add('live'); }
 
-    var cog = find('course over ground', 'heading', 'course');
-    if (cog) {
-      document.getElementById('vv-cog').textContent = Math.round(parseFloat(cog.rawValue));
-      document.getElementById('vc-cog').classList.add('live');
+    // Conso AC
+    var acOut = find('Output power 1');
+    if (acOut) { T('vv-ac', Math.round(parseFloat(acOut.rawValue))); document.getElementById('vc-ac').classList.add('live'); }
+
+    // Puissance batterie
+    var batP = find('Battery Power');
+    if (batP) { T('vv-dc', Math.round(Math.abs(parseFloat(batP.rawValue)))); document.getElementById('vc-dc').classList.add('live'); }
+
+    // SOG / COG
+    var sog = find('Speed over ground');
+    if (sog) { T('vv-sog', parseFloat(sog.rawValue).toFixed(1)); document.getElementById('vc-sog').classList.add('live'); }
+    var cog = find('Course over ground');
+    if (cog) { T('vv-cog', Math.round(parseFloat(cog.rawValue))); document.getElementById('vc-cog').classList.add('live'); }
+
+    // Profondeur / Température moteur
+    var dep = find('Depth', 'Water depth');
+    if (dep) { T('vv-dep', parseFloat(dep.rawValue).toFixed(1)); document.getElementById('vc-dep').classList.add('live'); }
+    var tmp = find('Engine temperature', 'Coolant');
+    if (tmp) { T('vv-tmp', Math.round(parseFloat(tmp.rawValue))); document.getElementById('vc-tmp').classList.add('live'); }
+
+    // Mettre à jour GPS si on l'a depuis VRM
+    if (gpsSource !== 'vrm') {
+      var latR = find('Latitude'), lngR = find('Longitude');
+      if (latR && lngR) {
+        LAT = +parseFloat(latR.rawValue).toFixed(5);
+        LON = +parseFloat(lngR.rawValue).toFixed(5);
+        gpsSource = 'vrm';
+        setGPS(LAT+'°N  '+LON+'°E','⚓ GPS Bateau · Cerbo GX','#ffb020');
+        if (MAP) MAP.setView([LAT,LON],8);
+        loadWindy('ecmwf');
+      }
     }
   })
   .catch(function(err) {
-    setVrmDot('err');
-    document.getElementById('vrmAge').textContent = 'Erreur';
+    setVdot('err'); T('vAge','Erreur');
     showVrmMsg('err', '⚠ ' + err.message);
-    console.error('VRM:', err.message);
   });
 }
 
 function showVrmMsg(type, msg) {
   var el = document.getElementById('vrmMsg');
-  el.className = type === 'err' ? 'err-box' : type === 'ok' ? 'ok-box' : 'info-box';
+  el.className = type==='err'?'err-box':type==='ok'?'ok-box':'info-box';
   el.textContent = msg;
   el.classList.remove('hidden');
 }
-
-function setVrmDot(s) {
-  var d = document.getElementById('vrmDot');
-  d.className = 'badge-dot' + (s === 'live' ? ' live' : s === 'err' ? ' err' : s === 'warn' ? ' warn' : '');
+function setVdot(s) {
+  var d = document.getElementById('vdot');
+  d.className = 'bdot' + (s==='live-gold'?' live-gold':s==='live'?' live':s==='err'?' err':s==='warn'?' warn':'');
+  if(s==='live-gold') document.getElementById('vStatusTxt').style.color='var(--gold)';
 }
 
-/* ══════════════════════════════════════
-   MQTT — chargé dynamiquement
-══════════════════════════════════════ */
-function loadMQTTLibThen(cb) {
+/* ═══════ MQTT ═══════ */
+function loadMQTTThen(cb) {
   if (mqttLoaded && window.mqtt) { cb(); return; }
-  var script = document.createElement('script');
-  script.src = 'https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js';
-  script.onload = function() { mqttLoaded = true; cb(); };
-  script.onerror = function() {
-    setMqttStatus('err', '⚠ Impossible de charger mqtt.js — vérifier la connexion internet');
-  };
-  document.head.appendChild(script);
+  var sc = document.createElement('script');
+  sc.src = 'https://unpkg.com/mqtt@5.3.4/dist/mqtt.min.js';
+  sc.onload = function() { mqttLoaded=true; cb(); };
+  sc.onerror = function() { setMdot('err'); T('mStatusTxt','⚠ Impossible charger mqtt.js'); };
+  document.head.appendChild(sc);
 }
 
 function connectMQTT() {
@@ -658,350 +629,235 @@ function connectMQTT() {
   var host  = document.getElementById('mqttHost').value.trim()  || 'broker.hivemq.com';
   localStorage.setItem('mqtt_topic', topic);
   localStorage.setItem('mqtt_host',  host);
-
-  setMqttStatus('warn', 'Chargement de la bibliothèque MQTT…');
-
-  loadMQTTLibThen(function() {
-    doConnectMQTT(topic, host);
-  });
+  localStorage.setItem('mqtt_auto', '1');
+  setMdot('warn'); T('mStatusTxt','Chargement MQTT…');
+  loadMQTTThen(function() { doConnect(topic, host); });
 }
 
-function doConnectMQTT(topic, host) {
-  if (mqttClient) { mqttClient.end(true); mqttClient = null; }
-  setMqttStatus('warn', 'Connexion à ' + host + '…');
-
-  var clientId = 'marannah_' + Math.random().toString(16).slice(2, 8);
-
+function doConnect(topic, host) {
+  if (mqttClient) { mqttClient.end(true); mqttClient=null; }
+  setMdot('warn'); T('mStatusTxt','Connexion à '+host+'…');
   try {
-    mqttClient = window.mqtt.connect('wss://' + host + ':8884/mqtt', {
-      clientId: clientId,
-      clean: true,
-      connectTimeout: 12000,
-      reconnectPeriod: 8000,
-      keepalive: 60
+    mqttClient = window.mqtt.connect('wss://'+host+':8884/mqtt',{
+      clientId:'marannah_'+Math.random().toString(16).slice(2,8),
+      clean:true,connectTimeout:12000,reconnectPeriod:8000,keepalive:60
     });
-  } catch(e) {
-    setMqttStatus('err', '⚠ Erreur connexion : ' + e.message);
-    return;
-  }
+  } catch(e) { setMdot('err'); T('mStatusTxt','⚠ '+e.message); return; }
 
-  mqttClient.on('connect', function() {
-    setMqttStatus('live', 'Connecté à ' + host + ' · Topic: ' + topic);
-    mqttClient.subscribe(topic, function(err) {
-      if (err) setMqttStatus('err', '⚠ Subscribe échoué: ' + err.message);
-    });
-    mqttClient.subscribe(topic + '/direction');
-    mqttClient.subscribe(topic + '/tws');
-    mqttClient.subscribe(topic + '/#');
+  mqttClient.on('connect',function(){
+    setMdot('live'); T('mStatusTxt','Connecté · '+host+' · '+topic);
+    mqttClient.subscribe(topic);
+    mqttClient.subscribe(topic+'/direction');
+    mqttClient.subscribe(topic+'/tws');
+    mqttClient.subscribe(topic+'/#');
   });
 
-  mqttClient.on('message', function(t, msg) {
-    var str = msg.toString();
-    var d = null;
-    try { d = JSON.parse(str); } catch(e) {}
-
-    var now = new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
-
-    if (d) {
-      if (d.aws !== undefined) {
-        mqttWS = parseFloat(d.aws);
-        var bf = beaufort(mqttWS);
-        document.getElementById('mqttWS').textContent = mqttWS.toFixed(1);
-        document.getElementById('mqttWS').className   = 'wind-val bf-' + bf;
-        document.getElementById('mqttBF').textContent = 'BF ' + bf;
-        document.getElementById('mqttAge').textContent = now;
-        if (mqttAWD !== null) drawCompass('compassMQTT', mqttAWD, mqttWS, 150);
+  mqttClient.on('message',function(t,msg){
+    var str=msg.toString(), d=null, now=new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+    try{d=JSON.parse(str);}catch(e){}
+    if(d){
+      if(d.aws!==undefined){
+        mqttWS=parseFloat(d.aws);
+        var bf=beaufort(mqttWS);
+        T('mqttWS',mqttWS.toFixed(1));
+        document.getElementById('mqttWS').className='wv bf-'+bf;
+        T('mqttBF','BF '+bf); T('mqttAge',now);
+        if(mqttAWD!==null) drawC('compassMQTT',mqttAWD,mqttWS,150);
       }
-      if (d.awd !== undefined) {
-        mqttAWD = Math.round(parseFloat(d.awd));
-        document.getElementById('mqttDir').textContent    = card(mqttAWD);
-        document.getElementById('mqttDirDeg').textContent = mqttAWD + '°';
-        document.getElementById('mqttAge').textContent = now;
-        if (mqttWS !== null) drawCompass('compassMQTT', mqttAWD, mqttWS, 150);
+      if(d.awd!==undefined){
+        mqttAWD=Math.round(parseFloat(d.awd));
+        T('mqttDir',card(mqttAWD)); T('mqttDirD',mqttAWD+'°'); T('mqttAge',now);
+        if(mqttWS!==null) drawC('compassMQTT',mqttAWD,mqttWS,150);
       }
-      if (d.tws !== undefined) {
-        document.getElementById('mqttTWS').textContent = parseFloat(d.tws).toFixed(1);
-      }
+      if(d.tws!==undefined) T('mqttTWS',parseFloat(d.tws).toFixed(1));
     } else {
-      // Valeur brute numérique
-      var raw = parseFloat(str);
-      if (!isNaN(raw)) {
-        mqttWS = raw < 30 ? raw * 1.94384 : raw;
-        document.getElementById('mqttWS').textContent = mqttWS.toFixed(1);
-        document.getElementById('mqttBF').textContent = 'BF ' + beaufort(mqttWS);
-        document.getElementById('mqttAge').textContent = now;
-      }
+      var raw=parseFloat(str);
+      if(!isNaN(raw)){ mqttWS=raw<30?raw*1.94384:raw; T('mqttWS',mqttWS.toFixed(1)); T('mqttBF','BF '+beaufort(mqttWS)); T('mqttAge',now); }
     }
   });
 
-  mqttClient.on('error',     function(e) { setMqttStatus('err',  '⚠ Erreur: ' + e.message); });
-  mqttClient.on('reconnect', function()  { setMqttStatus('warn', 'Reconnexion…'); });
-  mqttClient.on('close',     function()  { setMqttStatus('err',  'Déconnecté — RPi allumé ?'); });
+  mqttClient.on('error',function(e){setMdot('err');T('mStatusTxt','⚠ '+e.message);});
+  mqttClient.on('reconnect',function(){setMdot('warn');T('mStatusTxt','Reconnexion…');});
+  mqttClient.on('close',function(){setMdot('err');T('mStatusTxt','Déconnecté — RPi allumé ?');});
 }
 
-function disconnectMQTT() {
-  if (mqttClient) { mqttClient.end(true); mqttClient = null; }
-  setMqttStatus('', 'Déconnecté');
+function disconnectMQTT(){
+  if(mqttClient){mqttClient.end(true);mqttClient=null;}
+  localStorage.setItem('mqtt_auto','0');
+  setMdot('');T('mStatusTxt','Déconnecté');
 }
+function setMdot(s){var d=document.getElementById('mdot');d.className='bdot'+(s==='live'?' live':s==='err'?' err':s==='warn'?' warn':'');}
 
-function setMqttStatus(s, msg) {
-  var d = document.getElementById('mqttDot');
-  d.className = 'badge-dot' + (s === 'live' ? ' live' : s === 'err' ? ' err' : s === 'warn' ? ' warn' : '');
-  document.getElementById('mqttStatusTxt').textContent = msg;
-}
-
-/* ══════════════════════════════════════
-   MÉTÉO — Open-Meteo
-══════════════════════════════════════ */
-function loadMeteo() {
-  if (!LAT) {
-    document.getElementById('meteoStatus').textContent = 'GPS non disponible';
-    return;
-  }
-  document.getElementById('meteoDot').className = 'badge-dot warn';
-  document.getElementById('meteoStatus').textContent = 'Chargement…';
-
-  var u = 'https://api.open-meteo.com/v1/forecast?latitude=' + LAT + '&longitude=' + LON
-    + '&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,cloud_cover,visibility,uv_index'
-    + '&wind_speed_unit=kn&timezone=auto';
-
-  fetch(u)
-  .then(function(r) { return r.json(); })
-  .then(function(json) {
-    var c = json.current;
-    var ws = Math.round(c.wind_speed_10m), wd = c.wind_direction_10m, wg = Math.round(c.wind_gusts_10m);
-    var bf = beaufort(ws);
-    setText('windSpeed', ws); document.getElementById('windSpeed').className = 'wind-val bf-' + bf;
-    setText('windGust', wg); setText('windDir', card(wd)); setText('bfBadge', 'BF ' + bf);
-    setText('temp', Math.round(c.temperature_2m));
-    setText('feels', 'Ressenti ' + Math.round(c.apparent_temperature) + '°C');
-    setText('hum', Math.round(c.relative_humidity_2m));
-    var p = Math.round(c.surface_pressure);
-    setText('pres', p);
-    document.getElementById('pbar').style.width = Math.min(100, Math.max(0, ((p - 960) / 80) * 100)) + '%';
-    setText('cloud', Math.round(c.cloud_cover));
-    var vis = c.visibility;
-    setText('vis', vis >= 1000 ? (vis/1000).toFixed(1) : Math.round(vis));
-    setText('visU', vis >= 1000 ? 'km' : 'm');
-    setText('uv', Math.round(c.uv_index || 0));
-    drawCompass('compassModel', wd, ws, 140);
-
-    document.getElementById('meteoDot').className = 'badge-dot live';
-    document.getElementById('meteoStatus').textContent = 'OK · MAJ ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+/* ═══════ MÉTÉO ═══════ */
+function loadMeteo(){
+  if(!LAT){T('meteoStatus','GPS non disponible');return;}
+  document.getElementById('meteoDot').className='bdot warn';
+  T('meteoStatus','Chargement…');
+  fetch('https://api.open-meteo.com/v1/forecast?latitude='+LAT+'&longitude='+LON
+    +'&current=temperature_2m,relative_humidity_2m,apparent_temperature,wind_speed_10m,wind_direction_10m,wind_gusts_10m,surface_pressure,cloud_cover,visibility,uv_index'
+    +'&wind_speed_unit=kn&timezone=auto')
+  .then(function(r){return r.json();})
+  .then(function(j){
+    var c=j.current;
+    var ws=Math.round(c.wind_speed_10m),wd=c.wind_direction_10m,wg=Math.round(c.wind_gusts_10m),bf=beaufort(ws);
+    T('windSpeed',ws);document.getElementById('windSpeed').className='wv2 bf-'+bf;
+    T('windGust',wg);T('windDir',card(wd));T('bfBadge','BF '+bf);
+    T('temp',Math.round(c.temperature_2m));T('feels','Ressenti '+Math.round(c.apparent_temperature)+'°C');
+    T('hum',Math.round(c.relative_humidity_2m));
+    var p=Math.round(c.surface_pressure);T('pres',p);
+    document.getElementById('pbar').style.width=Math.min(100,Math.max(0,((p-960)/80)*100))+'%';
+    T('cloud',Math.round(c.cloud_cover));
+    var vis=c.visibility;T('vis',vis>=1000?(vis/1000).toFixed(1):Math.round(vis));T('visU',vis>=1000?'km':'m');
+    T('uv',Math.round(c.uv_index||0));
+    drawC('compassModel',wd,ws,140);
+    document.getElementById('meteoDot').className='bdot live';
+    T('meteoStatus','OK · MAJ '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}));
   })
-  .catch(function(e) {
-    document.getElementById('meteoDot').className = 'badge-dot err';
-    document.getElementById('meteoStatus').textContent = '⚠ Erreur météo: ' + e.message;
-  });
+  .catch(function(e){document.getElementById('meteoDot').className='bdot err';T('meteoStatus','⚠ '+e.message);});
 
-  // Marine
-  fetch('https://marine-api.open-meteo.com/v1/marine?latitude=' + LAT + '&longitude=' + LON
-    + '&current=wave_height,wave_direction,wave_period,swell_wave_height,swell_wave_direction,swell_wave_period&timezone=auto')
-  .then(function(r) { return r.json(); })
-  .then(function(json) {
-    var c = json.current;
-    if (!c) return;
-    setText('wH', c.wave_height ? c.wave_height.toFixed(1) : 'N/A');
-    setText('wP', c.wave_period ? Math.round(c.wave_period) : 'N/A');
-    setText('wD', card(c.wave_direction)); setText('wDd', (c.wave_direction|0) + '°');
-    setText('sH', c.swell_wave_height ? c.swell_wave_height.toFixed(1) : 'N/A');
-    setText('sP', c.swell_wave_period ? Math.round(c.swell_wave_period) : 'N/A');
-    setText('sD', card(c.swell_wave_direction)); setText('sDd', (c.swell_wave_direction|0) + '°');
-  })
-  .catch(function() {});
+  fetch('https://marine-api.open-meteo.com/v1/marine?latitude='+LAT+'&longitude='+LON
+    +'&current=wave_height,wave_direction,wave_period,swell_wave_height,swell_wave_direction,swell_wave_period&timezone=auto')
+  .then(function(r){return r.json();})
+  .then(function(j){
+    var c=j.current;if(!c)return;
+    T('wH',c.wave_height?c.wave_height.toFixed(1):'N/A');T('wP',c.wave_period?Math.round(c.wave_period):'N/A');
+    T('wD',card(c.wave_direction));T('wDd',(c.wave_direction|0)+'°');
+    T('sH',c.swell_wave_height?c.swell_wave_height.toFixed(1):'N/A');T('sP',c.swell_wave_period?Math.round(c.swell_wave_period):'N/A');
+    T('sD',card(c.swell_wave_direction));T('sDd',(c.swell_wave_direction|0)+'°');
+  }).catch(function(){});
 
-  // Forecast
-  fetch('https://api.open-meteo.com/v1/forecast?latitude=' + LAT + '&longitude=' + LON
-    + '&hourly=temperature_2m,wind_speed_10m,precipitation&wind_speed_unit=kn&timezone=auto&forecast_days=5')
-  .then(function(r) { return r.json(); })
-  .then(function(json) { fcData = json.hourly; renderFc('wind'); })
-  .catch(function() {});
+  fetch('https://api.open-meteo.com/v1/forecast?latitude='+LAT+'&longitude='+LON
+    +'&hourly=temperature_2m,wind_speed_10m,precipitation&wind_speed_unit=kn&timezone=auto&forecast_days=5')
+  .then(function(r){return r.json();})
+  .then(function(j){fcData=j.hourly;renderFc('wind');}).catch(function(){});
 }
 
-function switchFc(type) {
-  ['wind','temp','rain'].forEach(function(t) {
-    document.getElementById('ft-' + t).classList.toggle('on', t === type);
-  });
+function switchFc(type){
+  ['wind','temp','rain'].forEach(function(t){document.getElementById('ft-'+t).classList.toggle('on',t===type);});
   renderFc(type);
 }
-
-function renderFc(type) {
-  if (!fcData) return;
-  var idx = [], i;
-  for (i = 0; i < fcData.time.length; i++) { if (i % 3 === 0) idx.push(i); }
-  idx = idx.slice(0, 40);
-  var labels = idx.map(function(i) {
-    var d = new Date(fcData.time[i]);
-    return d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric'}) + ' ' + d.getHours().toString().padStart(2,'0') + 'h';
-  });
-  var data, col, fill, yL;
-  if (type === 'wind')     { data = idx.map(function(i){return fcData.wind_speed_10m[i]});  col = '#00d4ff'; fill = false; yL = 'kt'; }
-  else if (type === 'temp'){ data = idx.map(function(i){return fcData.temperature_2m[i]});  col = '#ff7b29'; fill = false; yL = '°C'; }
-  else                     { data = idx.map(function(i){return fcData.precipitation[i]});    col = '#00ff88'; fill = true;  yL = 'mm'; }
-  var ctx = document.getElementById('forecastChart').getContext('2d');
-  if (fcChart) fcChart.destroy();
-  fcChart = new Chart(ctx, {
-    type: type === 'rain' ? 'bar' : 'line',
-    data: { labels: labels, datasets: [{ data: data, borderColor: col, backgroundColor: col + (type==='rain'?'aa':'18'), borderWidth: 2, pointRadius: 2, tension: .4, fill: fill }] },
-    options: { responsive: true, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#061524', borderColor: '#0e2840', borderWidth: 1, titleColor: '#a8cce8', bodyColor: col, callbacks: { label: function(c) { return c.parsed.y.toFixed(1) + ' ' + yL; } } } },
-      scales: { x: { grid: { color: '#0e2840' }, ticks: { color: '#324e68', font: { family: 'Share Tech Mono', size: 9 }, maxTicksLimit: 12 } }, y: { grid: { color: '#0e2840' }, ticks: { color: '#324e68', font: { family: 'Share Tech Mono', size: 10 }, callback: function(v) { return v + ' ' + yL; } } } } }
-  });
+function renderFc(type){
+  if(!fcData)return;
+  var idx=[],i;
+  for(i=0;i<fcData.time.length;i++){if(i%3===0)idx.push(i);}
+  idx=idx.slice(0,40);
+  var labels=idx.map(function(i){var d=new Date(fcData.time[i]);return d.toLocaleDateString('fr-FR',{weekday:'short',day:'numeric'})+' '+d.getHours().toString().padStart(2,'0')+'h';});
+  var data,col,fill,yL;
+  if(type==='wind'){data=idx.map(function(i){return fcData.wind_speed_10m[i];});col='#00d4ff';fill=false;yL='kt';}
+  else if(type==='temp'){data=idx.map(function(i){return fcData.temperature_2m[i];});col='#ff7b29';fill=false;yL='°C';}
+  else{data=idx.map(function(i){return fcData.precipitation[i];});col='#00ff88';fill=true;yL='mm';}
+  var ctx=document.getElementById('forecastChart').getContext('2d');
+  if(fcChart)fcChart.destroy();
+  fcChart=new Chart(ctx,{type:type==='rain'?'bar':'line',
+    data:{labels:labels,datasets:[{data:data,borderColor:col,backgroundColor:col+(type==='rain'?'aa':'18'),borderWidth:2,pointRadius:2,tension:.4,fill:fill}]},
+    options:{responsive:true,plugins:{legend:{display:false},tooltip:{backgroundColor:'#061524',borderColor:'#0e2840',borderWidth:1,titleColor:'#a8cce8',bodyColor:col,callbacks:{label:function(c){return c.parsed.y.toFixed(1)+' '+yL;}}}},
+      scales:{x:{grid:{color:'#0e2840'},ticks:{color:'#324e68',font:{family:'Share Tech Mono',size:9},maxTicksLimit:12}},y:{grid:{color:'#0e2840'},ticks:{color:'#324e68',font:{family:'Share Tech Mono',size:10},callback:function(v){return v+' '+yL;}}}}}});
 }
 
-/* ══════════════════════════════════════
-   CARTE / RADAR
-══════════════════════════════════════ */
-function initMap() {
-  if (!LAT || MAP) return;
-  MAP = L.map('radarMap', { center: [LAT, LON], zoom: 8 });
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png', { attribution: '© CARTO', maxZoom: 18 }).addTo(MAP);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png', { attribution: '', maxZoom: 18, zIndex: 500 }).addTo(MAP);
-  L.circleMarker([LAT, LON], { radius: 9, fillColor: gpsSource === 'vrm' ? '#ffb020' : '#00d4ff', color: '#fff', weight: 2, fillOpacity: .95 })
-   .bindTooltip(gpsSource === 'vrm' ? '⚓ Marannah (VRM)' : '📍 Position').addTo(MAP);
+/* ═══════ CARTE ═══════ */
+function initMap(){
+  if(!LAT||MAP)return;
+  MAP=L.map('radarMap',{center:[LAT,LON],zoom:8});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',{attribution:'© CARTO',maxZoom:18}).addTo(MAP);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{attribution:'',maxZoom:18,zIndex:500}).addTo(MAP);
+  L.circleMarker([LAT,LON],{radius:9,fillColor:gpsSource==='vrm'?'#ffb020':'#00d4ff',color:'#fff',weight:2,fillOpacity:.95})
+   .bindTooltip(gpsSource==='vrm'?'⚓ Marannah (GPS Cerbo)':'📍 Position').addTo(MAP);
 }
 
-function loadRadar() {
-  if (!LAT) return;
+/* ═══════ RADAR ═══════ */
+function loadRadar(){
+  if(!LAT)return;
   fetch('https://api.rainviewer.com/public/weather-maps.json')
-  .then(function(r) { return r.json(); })
-  .then(function(d) {
-    rainFrames = (d.radar && d.radar.past ? d.radar.past : []).concat(d.radar && d.radar.nowcast ? d.radar.nowcast : []);
-    satFrames  = (d.satellite && d.satellite.infrared) ? d.satellite.infrared : [];
-    var tl = document.getElementById('radarTL');
-    tl.innerHTML = '';
-    rainFrames.forEach(function(fr, i) {
-      var b = document.createElement('button');
-      var isN = i >= rainFrames.length - 2;
-      b.className = 'tlb' + (i === rainFrames.length - 1 ? ' active' : '') + (isN ? ' ncast' : '');
-      b.textContent = new Date(fr.time * 1000).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}) + (isN ? '~' : '');
-      b.onclick = function() { showFrame(i); };
-      tl.appendChild(b);
+  .then(function(r){return r.json();})
+  .then(function(d){
+    rainFrames=(d.radar&&d.radar.past?d.radar.past:[]).concat(d.radar&&d.radar.nowcast?d.radar.nowcast:[]);
+    satFrames=(d.satellite&&d.satellite.infrared)?d.satellite.infrared:[];
+    var tl=document.getElementById('radarTL');tl.innerHTML='';
+    rainFrames.forEach(function(fr,i){
+      var b=document.createElement('button');
+      var isN=i>=rainFrames.length-2;
+      b.className='tlb'+(i===rainFrames.length-1?' active':'')+(isN?' ncast':'');
+      b.textContent=new Date(fr.time*1000).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})+(isN?'~':'');
+      b.onclick=function(){showFrame(i);};tl.appendChild(b);
     });
-    curFrame = Math.max(0, rainFrames.length - 1);
-    showFrame(curFrame);
-  })
-  .catch(function() {});
+    curFrame=Math.max(0,rainFrames.length-1);showFrame(curFrame);
+  }).catch(function(){});
 }
 
-function showFrame(idx) {
-  if (!MAP) return;
-  if (rainLayer) { MAP.removeLayer(rainLayer); rainLayer = null; }
-  if (satLayer)  { MAP.removeLayer(satLayer);  satLayer  = null; }
-  document.querySelectorAll('.tlb').forEach(function(b, i) { b.classList.toggle('active', i === idx); });
-  curFrame = idx;
-  var sc = document.getElementById('colorSel').value;
-  if ((radarMode === 'rain' || radarMode === 'both') && rainFrames[idx])
-    rainLayer = L.tileLayer('https://tilecache.rainviewer.com' + rainFrames[idx].path + '/256/{z}/{x}/{y}/' + sc + '/1_1.png', { opacity: .7, zIndex: 10 }).addTo(MAP);
-  if ((radarMode === 'sat' || radarMode === 'both') && satFrames.length) {
-    var rt = rainFrames[idx] ? rainFrames[idx].time : 0;
-    var best = satFrames.reduce(function(a, b) { return Math.abs(b.time - rt) < Math.abs(a.time - rt) ? b : a; });
-    satLayer = L.tileLayer('https://tilecache.rainviewer.com' + best.path + '/256/{z}/{x}/{y}/0/0_0.png', { opacity: radarMode === 'both' ? .45 : .75, zIndex: 9 }).addTo(MAP);
+function showFrame(idx){
+  if(!MAP)return;
+  if(rainLayer){MAP.removeLayer(rainLayer);rainLayer=null;}
+  if(satLayer){MAP.removeLayer(satLayer);satLayer=null;}
+  document.querySelectorAll('.tlb').forEach(function(b,i){b.classList.toggle('active',i===idx);});
+  curFrame=idx;var sc=document.getElementById('colorSel').value;
+  if((radarMode==='rain'||radarMode==='both')&&rainFrames[idx])
+    rainLayer=L.tileLayer('https://tilecache.rainviewer.com'+rainFrames[idx].path+'/256/{z}/{x}/{y}/'+sc+'/1_1.png',{opacity:.7,zIndex:10}).addTo(MAP);
+  if((radarMode==='sat'||radarMode==='both')&&satFrames.length){
+    var rt=rainFrames[idx]?rainFrames[idx].time:0;
+    var best=satFrames.reduce(function(a,b){return Math.abs(b.time-rt)<Math.abs(a.time-rt)?b:a;});
+    satLayer=L.tileLayer('https://tilecache.rainviewer.com'+best.path+'/256/{z}/{x}/{y}/0/0_0.png',{opacity:radarMode==='both'?.45:.75,zIndex:9}).addTo(MAP);
   }
 }
-
-function switchLayer(mode) {
-  radarMode = mode;
-  ['rain','sat','both'].forEach(function(m) { document.getElementById('lr-' + m).classList.toggle('on', m === mode); });
-  var sel = document.getElementById('colorSel');
-  sel.style.opacity = mode === 'sat' ? '.3' : '1';
-  sel.disabled = (mode === 'sat');
+function switchLayer(mode){
+  radarMode=mode;
+  ['rain','sat','both'].forEach(function(m){document.getElementById('lr-'+m).classList.toggle('on',m===mode);});
+  var sel=document.getElementById('colorSel');sel.style.opacity=mode==='sat'?'.3':'1';sel.disabled=(mode==='sat');
   showFrame(curFrame);
 }
-
-function togglePlay() {
-  playing = !playing;
-  document.getElementById('playBtn').textContent = playing ? '⏸' : '▶';
-  if (playing) playTimer = setInterval(function() { showFrame((curFrame + 1) % rainFrames.length); }, 700);
+function togglePlay(){
+  playing=!playing;document.getElementById('playBtn').textContent=playing?'⏸':'▶';
+  if(playing)playTimer=setInterval(function(){showFrame((curFrame+1)%rainFrames.length);},700);
   else clearInterval(playTimer);
 }
 
-/* ══════════════════════════════════════
-   WINDY
-══════════════════════════════════════ */
-var MODELS = {
-  ecmwf: { product: 'ecmwf', overlay: 'wind' },
-  arome: { product: 'arome', overlay: 'wind' },
-  gfs:   { product: 'gfs',   overlay: 'wind' },
-  mfwam: { product: 'mfwam', overlay: 'waves' }
-};
-
-function switchModel(m) {
-  Object.keys(MODELS).forEach(function(k) {
-    var el = document.getElementById('wm-' + k);
-    if (el) el.classList.toggle('on', k === m);
-  });
+/* ═══════ WINDY ═══════ */
+var WMODELS={ecmwf:{product:'ecmwf',overlay:'wind'},arome:{product:'arome',overlay:'wind'},gfs:{product:'gfs',overlay:'wind'},mfwam:{product:'mfwam',overlay:'waves'}};
+function switchModel(m){
+  Object.keys(WMODELS).forEach(function(k){var el=document.getElementById('wm-'+k);if(el)el.classList.toggle('on',k===m);});
   loadWindy(m);
 }
-
-function loadWindy(m) {
-  if (!LAT) return;
-  var pm = MODELS[m] || MODELS.ecmwf;
-  document.getElementById('windyBox').innerHTML =
-    '<iframe src="https://embed.windy.com/embed2.html?lat=' + LAT + '&lon=' + LON + '&zoom=9&level=surface&overlay=' + pm.overlay + '&product=' + pm.product + '&menu=&message=true&marker=true&calendar=now&pressure=true&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=%C2%B0C&radarRange=-1" allowfullscreen loading="lazy"></iframe>';
+function loadWindy(m){
+  if(!LAT)return;
+  var pm=WMODELS[m]||WMODELS.ecmwf;
+  document.getElementById('windyBox').innerHTML='<iframe src="https://embed.windy.com/embed2.html?lat='+LAT+'&lon='+LON+'&zoom=9&level=surface&overlay='+pm.overlay+'&product='+pm.product+'&menu=&message=true&marker=true&calendar=now&pressure=true&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=%C2%B0C&radarRange=-1" allowfullscreen loading="lazy"></iframe>';
 }
 
-/* ══════════════════════════════════════
-   COMPAS CANVAS
-══════════════════════════════════════ */
-function drawCompass(id, dir, spd, sz) {
-  var cv = document.getElementById(id);
-  if (!cv) return;
-  var ctx = cv.getContext('2d'), cx = sz/2, cy = sz/2, R = sz/2 - 12;
-  ctx.clearRect(0, 0, sz, sz);
-  ctx.beginPath(); ctx.arc(cx, cy, R, 0, Math.PI*2);
-  ctx.strokeStyle = '#0e2840'; ctx.lineWidth = 1.5; ctx.stroke();
-  for (var i = 0; i < 360; i += 5) {
-    var r = (i - 90) * Math.PI / 180;
-    var maj = i % 90 === 0, mid = i % 30 === 0, len = maj ? 9 : mid ? 5 : 3;
-    ctx.beginPath();
-    ctx.moveTo(cx + R * Math.cos(r), cy + R * Math.sin(r));
-    ctx.lineTo(cx + (R - len) * Math.cos(r), cy + (R - len) * Math.sin(r));
-    ctx.strokeStyle = maj ? '#1a3d5e' : '#0d2438'; ctx.lineWidth = maj ? 1.5 : .8; ctx.stroke();
+/* ═══════ COMPAS ═══════ */
+function drawC(id,dir,spd,sz){
+  var cv=document.getElementById(id);if(!cv)return;
+  var ctx=cv.getContext('2d'),cx=sz/2,cy=sz/2,R=sz/2-12;
+  ctx.clearRect(0,0,sz,sz);
+  ctx.beginPath();ctx.arc(cx,cy,R,0,Math.PI*2);ctx.strokeStyle='#0e2840';ctx.lineWidth=1.5;ctx.stroke();
+  for(var i=0;i<360;i+=5){
+    var r=(i-90)*Math.PI/180,maj=i%90===0,mid=i%30===0,len=maj?9:mid?5:3;
+    ctx.beginPath();ctx.moveTo(cx+R*Math.cos(r),cy+R*Math.sin(r));
+    ctx.lineTo(cx+(R-len)*Math.cos(r),cy+(R-len)*Math.sin(r));
+    ctx.strokeStyle=maj?'#1a3d5e':'#0d2438';ctx.lineWidth=maj?1.5:.8;ctx.stroke();
   }
-  ctx.font = 'bold 10px "Barlow Condensed", sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.font='bold 10px "Barlow Condensed",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
   [{l:'N',a:0,c:'#ff3b60'},{l:'E',a:90,c:'#324e68'},{l:'S',a:180,c:'#324e68'},{l:'O',a:270,c:'#324e68'}]
-  .forEach(function(p) {
-    var r = (p.a - 90) * Math.PI / 180;
-    ctx.fillStyle = p.c;
-    ctx.fillText(p.l, cx + (R-14)*Math.cos(r), cy + (R-14)*Math.sin(r));
-  });
-  var bf = beaufort(spd);
-  var col = bf >= 9 ? '#ff3b60' : bf >= 7 ? '#ff7b29' : bf >= 5 ? '#ffd600' : '#00d4ff';
-  var angle = ((dir + 180) % 360) * Math.PI / 180;
-  var AL = R * 0.58;
-  ctx.save(); ctx.translate(cx, cy); ctx.rotate(angle);
-  ctx.shadowColor = col; ctx.shadowBlur = 10;
-  ctx.beginPath(); ctx.moveTo(0, AL*.4); ctx.lineTo(0, -AL);
-  ctx.strokeStyle = col; ctx.lineWidth = 2.5; ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, -AL); ctx.lineTo(-7, -AL+13); ctx.lineTo(7, -AL+13);
-  ctx.closePath(); ctx.fillStyle = col; ctx.fill();
+  .forEach(function(p){var r=(p.a-90)*Math.PI/180;ctx.fillStyle=p.c;ctx.fillText(p.l,cx+(R-14)*Math.cos(r),cy+(R-14)*Math.sin(r));});
+  var bf=beaufort(spd),col=bf>=9?'#ff3b60':bf>=7?'#ff7b29':bf>=5?'#ffd600':'#00d4ff';
+  var AL=R*0.58;
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(((dir+180)%360)*Math.PI/180);
+  ctx.shadowColor=col;ctx.shadowBlur=10;
+  ctx.beginPath();ctx.moveTo(0,AL*.4);ctx.lineTo(0,-AL);ctx.strokeStyle=col;ctx.lineWidth=2.5;ctx.stroke();
+  ctx.beginPath();ctx.moveTo(0,-AL);ctx.lineTo(-7,-AL+13);ctx.lineTo(7,-AL+13);ctx.closePath();ctx.fillStyle=col;ctx.fill();
   ctx.restore();
-  ctx.beginPath(); ctx.arc(cx, cy, 4, 0, Math.PI*2);
-  ctx.fillStyle = '#061524'; ctx.fill();
-  ctx.strokeStyle = col; ctx.lineWidth = 1.5; ctx.stroke();
+  ctx.beginPath();ctx.arc(cx,cy,4,0,Math.PI*2);ctx.fillStyle='#061524';ctx.fill();ctx.strokeStyle=col;ctx.lineWidth=1.5;ctx.stroke();
 }
 
-/* ══════════════════════════════════════
-   HELPERS
-══════════════════════════════════════ */
-function beaufort(kt) {
-  if (kt < 1)  return 0; if (kt < 4)  return 1; if (kt < 7)  return 2;
-  if (kt < 11) return 3; if (kt < 17) return 4; if (kt < 22) return 5;
-  if (kt < 28) return 6; if (kt < 34) return 7; if (kt < 41) return 8;
-  if (kt < 48) return 9; if (kt < 56) return 10; if (kt < 64) return 11;
-  return 12;
+/* ═══════ HELPERS ═══════ */
+function beaufort(kt){
+  if(kt<1)return 0;if(kt<4)return 1;if(kt<7)return 2;if(kt<11)return 3;
+  if(kt<17)return 4;if(kt<22)return 5;if(kt<28)return 6;if(kt<34)return 7;
+  if(kt<41)return 8;if(kt<48)return 9;if(kt<56)return 10;if(kt<64)return 11;return 12;
 }
-
-function card(deg) {
-  if (deg == null) return '—';
-  var dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
-  return dirs[Math.round(((deg % 360) + 360) % 360 / 22.5) % 16];
+function card(deg){
+  if(deg==null)return'—';
+  return['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'][Math.round(((deg%360)+360)%360/22.5)%16];
 }
-
-function setText(id, v) {
-  var el = document.getElementById(id);
-  if (el) el.textContent = (v !== null && v !== undefined) ? v : '—';
-}
+function T(id,v){var e=document.getElementById(id);if(e)e.textContent=(v!==null&&v!==undefined)?v:'—';}
 </script>
 </body>
 </html>
