@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
-<head>
+<script src="https://api.windy.com/assets/map-forecast/libBoot.js"></script>
+  <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>⚓ Marannah · Station Météo</title>
@@ -401,18 +402,7 @@
   </div>
 
   <!-- ══ WINDY ══ -->
-  <div>
-    <div class="sh">🌀 Prévisions Windy</div>
-    <div class="tabs">
-      <button class="tab on"    id="wm-ecmwf" onclick="switchModel('ecmwf')">ECMWF · 9km</button>
-      <button class="tab arome" id="wm-arome" onclick="switchModel('arome')">🇫🇷 AROME · 1.3km</button>
-      <button class="tab gfs"   id="wm-gfs"   onclick="switchModel('gfs')">GFS · NOAA</button>
-      <button class="tab mfwam" id="wm-mfwam" onclick="switchModel('mfwam')">MF-WAM Vagues</button>
-    </div>
-    <div class="wbox" id="windyBox">
-      <div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--muted);font-family:'Share Tech Mono',monospace;font-size:12px">Chargement après GPS…</div>
-    </div>
-  </div>
+  <div id="windy" style="height:480px;border:1px solid var(--bd);border-radius:6px;overflow:hidden"></div>
 
 </div>
 
@@ -859,13 +849,66 @@ function togglePlay(){
 }
 
 /* ═══ WINDY ═══ */
-var WM={ecmwf:{product:'ecmwf',overlay:'wind'},arome:{product:'arome',overlay:'wind'},gfs:{product:'gfs',overlay:'wind'},mfwam:{product:'mfwam',overlay:'waves'}};
-function switchModel(m){Object.keys(WM).forEach(function(k){var el=document.getElementById('wm-'+k);if(el)el.classList.toggle('on',k===m);});loadWindy(m);}
-function loadWindy(m){
-  if(!LAT)return;var pm=WM[m]||WM.ecmwf;
-  document.getElementById('windyBox').innerHTML='<iframe src="https://embed.windy.com/embed2.html?lat='+LAT+'&lon='+LON+'&zoom=9&level=surface&overlay='+pm.overlay+'&product='+pm.product+'&menu=&message=true&marker=true&calendar=now&pressure=true&type=map&location=coordinates&detail=&metricWind=kt&metricTemp=%C2%B0C&radarRange=-1" allowfullscreen loading="lazy"></iframe>';
+var windyAPI = null;
+var windyStore = null;
+
+function initWindy() {
+  if (!LAT || !window.windyInit) return;
+
+  windyInit({
+    key: 'eaps7khMHYuAkGifMBUk5ZiR1NGeiVvc',
+    verbose: false,
+    lat: LAT,
+    lon: LON,
+    zoom: 9,
+    overlay: 'wind',
+    level: 'surface',
+    timestamp: Date.now(),
+    graticule: false,
+    latlon: true,
+  }, function(api) {
+    windyAPI = api;
+    windyStore = api.store;
+
+    // Marker position bateau
+    var map = api.map;
+    var icon = L.divIcon({
+      html: '<div style="width:14px;height:14px;background:#ffbe33;border:2px solid #fff;border-radius:50%;box-shadow:0 0 12px #ffbe33"></div>',
+      className: '', iconSize: [14,14], iconAnchor: [7,7]
+    });
+    L.marker([LAT, LON], {icon: icon})
+      .bindTooltip('⚓ Marannah', {permanent: true, direction: 'top', offset: [0, -10]})
+      .addTo(map);
+  });
 }
 
+var WM = {
+  ecmwf: { product: 'ecmwf', overlay: 'wind' },
+  arome: { product: 'arome', overlay: 'wind' },
+  gfs:   { product: 'gfs',   overlay: 'wind' },
+  mfwam: { product: 'ecmwf', overlay: 'waves' },
+};
+
+function switchModel(m) {
+  Object.keys(WM).forEach(function(k) {
+    var el = document.getElementById('wm-' + k);
+    if (el) el.classList.toggle('on', k === m);
+  });
+  if (!windyStore) return;
+  var pm = WM[m] || WM.ecmwf;
+  windyStore.set('overlay', pm.overlay);
+  windyStore.set('product', pm.product);
+}
+
+function loadWindy(m) {
+  if (!LAT) return;
+  // Windy API s'initialise une seule fois
+  if (!windyAPI) {
+    setTimeout(function() {
+      if (window.windyInit) initWindy();
+    }, 500);
+  }
+}
 /* ═══ COMPAS ═══ */
 function drawC(id,dir,spd,sz){
   var cv=document.getElementById(id);if(!cv)return;
