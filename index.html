@@ -442,7 +442,7 @@ function getGPS() {
   var token = localStorage.getItem('vrm_token');
   var site  = localStorage.getItem('vrm_site') || '821412';
   if (token) {
-    fetch('https://vrmapi.victronenergy.com/v2/installations/' + site + '/gps', {
+    fetch('https://stationvrm.marannahsail.workers.dev/v2/installations/' + site + '/gps', {
       headers: { 'x-authorization': 'Token ' + token }
     })
     .then(function(r) { return r.json(); })
@@ -544,7 +544,7 @@ function fetchVRM() {
   setVrmDot('warn');
   document.getElementById('vrmAge').textContent = 'Chargement…';
 
-  fetch('https://vrmapi.victronenergy.com/v2/installations/' + site + '/diagnostics?count=1000', {
+  fetch('https://stationvrm.marannahsail.workers.dev/v2/installations/' + site + '/diagnostics?count=1000', {
     headers: { 'x-authorization': 'Token ' + token }
   })
   .then(function(r) {
