@@ -564,20 +564,46 @@ function updateBoatMap(lat,lon){
 /* ════ MOUILLAGE ════ */
 function dropAnchor(){
   if(!LAT)return;
-  anchorLat=LAT;anchorLon=LON;
   var r=parseInt(document.getElementById('anchorRadius').value)||50;
+  activateAnchorUI(LAT,LON,r);
+  // Envoyer commande à Node-RED via MQTT
+  if(mqttClient){
+    mqttClient.publish('voilesfilantes/ancre/cmd',
+      JSON.stringify({cmd:'mouiller',lat:LAT,lon:LON,radius:r}));
+  }
+}
+
+function clearAnchor(){
+  deactivateAnchorUI();
+  // Envoyer commande lever à Node-RED via MQTT
+  if(mqttClient){
+    mqttClient.publish('voilesfilantes/ancre/cmd',
+      JSON.stringify({cmd:'lever'}));
+  }
+}
+
+// Activer l'affichage — appelé depuis bouton OU depuis MQTT Node-RED
+function activateAnchorUI(lat,lon,r){
+  anchorLat=parseFloat(lat);anchorLon=parseFloat(lon);
   document.getElementById('btnAnchor').style.display='none';
   document.getElementById('btnClearAnchor').style.display='inline-block';
+  document.getElementById('anchorRadius').value=r;
   if(anchorCircle&&BMAP)BMAP.removeLayer(anchorCircle);
-  if(BMAP){anchorCircle=L.circle([anchorLat,anchorLon],{radius:r,color:'#ffbe33',fillColor:'#ffbe33',fillOpacity:.08,weight:1.5,dashArray:'6 4'}).addTo(BMAP);BMAP.setView([anchorLat,anchorLon],15);}
-  T('anchorDist','Ancre mouillée · rayon '+r+'m');
+  if(BMAP){
+    anchorCircle=L.circle([anchorLat,anchorLon],{radius:r,color:'#ffbe33',fillColor:'#ffbe33',fillOpacity:.08,weight:1.5,dashArray:'6 4'}).addTo(BMAP);
+    BMAP.setView([anchorLat,anchorLon],15);
+  }
+  T('anchorDist','⚓ Ancre mouillée · rayon '+r+'m');
 }
-function clearAnchor(){
+
+// Désactiver l'affichage
+function deactivateAnchorUI(){
   anchorLat=null;anchorLon=null;
   document.getElementById('btnAnchor').style.display='inline-block';
   document.getElementById('btnClearAnchor').style.display='none';
   if(anchorCircle&&BMAP){BMAP.removeLayer(anchorCircle);anchorCircle=null;}
-  T('anchorDist','—');document.getElementById('anchorAlert').style.display='none';
+  T('anchorDist','—');
+  document.getElementById('anchorAlert').style.display='none';
 }
 function checkAnchor(lat,lon){
   if(!anchorLat)return;
@@ -714,6 +740,7 @@ function doConnect(topic,host){
     mqttClient.subscribe(topic+'/#');
     mqttClient.subscribe('voilesfilantes/gps');
     mqttClient.subscribe('voilesfilantes/vent/max'); // Max depuis Node-RED
+    mqttClient.subscribe('voilesfilantes/ancre/status'); // Statut mouillage depuis Node-RED
   });
 
   mqttClient.on('message',function(t,msg){
@@ -744,6 +771,15 @@ function doConnect(topic,host){
     if(d.max!==undefined){
       T('windMax24',parseFloat(d.max).toFixed(1));
       if(d.time) T('windMaxTime','à '+d.time);
+    }
+
+    // STATUT MOUILLAGE depuis Node-RED → synchronise l'affichage
+    if(t==='voilesfilantes/ancre/status'){
+      if(d.active && d.lat && d.lon){
+        activateAnchorUI(d.lat, d.lon, d.radius||50);
+      } else if(d.active===false){
+        deactivateAnchorUI();
+      }
     }
   });
 
