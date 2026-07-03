@@ -182,9 +182,15 @@
       .meteo-row,.sk-grid,.gps-row{grid-template-columns:1fr}
       .sg-grid,.swell-grid{grid-template-columns:repeat(2,1fr)}
       .vrm-grid{grid-template-columns:repeat(3,1fr)}
+      .astro-grid{grid-template-columns:repeat(2,1fr)}
       #boatMap{height:200px}
+      .baro-header{flex-direction:column;gap:6px}
     }
-    @media(max-width:500px){.cgrid,.vrm-grid,.sg-grid,.swell-grid{grid-template-columns:repeat(2,1fr)}}
+    @media(max-width:500px){
+      .cgrid,.vrm-grid,.sg-grid,.swell-grid{grid-template-columns:repeat(2,1fr)}
+      .astro-grid{grid-template-columns:repeat(2,1fr)}
+      #baroChart{height:60px}
+    }
     .leaflet-control-attribution{background:rgba(4,10,18,.9)!important;color:var(--muted)!important;font-size:9px!important}
     .leaflet-control-zoom a{background:var(--p1)!important;color:var(--cyan)!important;border-color:var(--bd)!important}
     .leaflet-tooltip-dark{background:rgba(4,10,18,.92);border:1px solid var(--bd);color:var(--white);font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:600;padding:4px 8px;box-shadow:0 2px 8px rgba(0,0,0,.6)}
@@ -1146,103 +1152,109 @@ function startClock(){
 function calcAstro(){
   if(!LAT||!LON) return;
   var now = new Date();
+  var lat = LAT, lng = LON;
 
-  // ── Calcul lever/coucher soleil ──
-  function sunTimes(date, lat, lng){
-    var JD = date.getTime()/86400000 + 2440587.5;
-    var n  = JD - 2451545.0;
-    var L  = (280.46 + 0.9856474*n) % 360;
-    var g  = (357.528 + 0.9856003*n) * Math.PI/180;
-    var lam= (L + 1.915*Math.sin(g) + 0.020*Math.sin(2*g)) * Math.PI/180;
-    var eps= 23.439 * Math.PI/180;
-    var dec= Math.asin(Math.sin(eps)*Math.sin(lam));
-    var cosH= (Math.sin(-0.0145) - Math.sin(lat*Math.PI/180)*Math.sin(dec)) /
-              (Math.cos(lat*Math.PI/180)*Math.cos(dec));
-    if(Math.abs(cosH)>1) return null; // Soleil jamais couché/levé
-    var H  = Math.acos(cosH) * 180/Math.PI;
-    var noon= 12 - lng/15 - (L - n*0.9856474 - 357.528 - 102.9372)*Math.PI/180*12/Math.PI;
-    var rise= noon - H/15;
-    var set = noon + H/15;
-    // Azimut lever/coucher
-    var azRise = Math.acos((Math.sin(dec)-Math.sin(lat*Math.PI/180)*Math.cos(H*Math.PI/180)) /
-                            (Math.cos(lat*Math.PI/180)*Math.sin(H*Math.PI/180)))*180/Math.PI;
-    return {
-      rise: rise,
-      set:  set,
-      noon: noon,
-      azRise: Math.round(azRise),
-      azSet:  Math.round(360-azRise)
-    };
+  // Offset timezone local en heures (ex: +2 pour CEST)
+  var tzOff = -now.getTimezoneOffset() / 60;
+
+  // Format heures décimales → HH:MM local
+  function fmt(h){
+    if(h===null||h===undefined||isNaN(h)) return '—';
+    h = ((h % 24) + 24) % 24;
+    var hh = Math.floor(h);
+    var mm = Math.round((h - hh) * 60);
+    if(mm >= 60){ hh++; mm = 0; }
+    return hh.toString().padStart(2,'0')+':'+mm.toString().padStart(2,'0');
   }
 
-  function hoursToHHMM(h){
-    if(!h&&h!==0)return'—';
-    // Ajustement timezone locale
-    var utcH = ((h % 24) + 24) % 24;
-    var local = new Date(); local.setUTCHours(0,0,0,0);
-    local = new Date(local.getTime() + utcH*3600000);
-    return local.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
-  }
+  // ── SOLEIL (algorithme NOAA simplifié) ──
+  var JD = now.getTime()/86400000 + 2440587.5;
+  var n  = JD - 2451545.0;
 
-  var sun = sunTimes(now, LAT, LON);
-  if(sun){
-    T('sunRise',  hoursToHHMM(sun.rise));
-    T('sunSet',   hoursToHHMM(sun.set));
-    T('sunRiseAz','Az. '+sun.azRise+'°');
-    T('sunSetAz', 'Az. '+sun.azSet+'°');
-    // Durée du jour
-    var dur = sun.set - sun.rise;
-    T('dayLength', Math.floor(dur)+'h'+Math.round((dur%1)*60).toString().padStart(2,'0'));
-    // Golden hour : 1h après lever, 1h avant coucher
-    T('goldenMorn', hoursToHHMM(sun.rise)+' → '+hoursToHHMM(sun.rise+1));
-    T('goldenEve',  hoursToHHMM(sun.set-1)+' → '+hoursToHHMM(sun.set));
-  }
+  // Longitude écliptique moyenne + anomalie
+  var L = ((280.460 + 0.9856474*n) % 360 + 360) % 360;
+  var g = ((357.528 + 0.9856003*n) % 360 + 360) % 360 * Math.PI/180;
 
-  // ── Calcul phase lunaire ──
-  function moonPhase(date){
-    var JD = date.getTime()/86400000 + 2440587.5;
-    var age = (JD - 2451550.1) % 29.53058867;
-    if(age < 0) age += 29.53058867;
-    return age; // jours depuis nouvelle lune
-  }
+  // Longitude écliptique vraie
+  var lam = (L + 1.915*Math.sin(g) + 0.020*Math.sin(2*g)) * Math.PI/180;
 
-  function moonRiseSet(date, lat, lng){
-    // Approximation simple lever/coucher lune
-    var JD = date.getTime()/86400000 + 2440587.5;
-    var T  = (JD - 2451545.0)/36525;
-    var L0 = 218.316 + 13.176396*JD*1 % 360;
-    var M  = (134.963 + 13.064993*JD) % 360 * Math.PI/180;
-    var F  = (93.272  + 13.229350*JD) % 360 * Math.PI/180;
-    var lon= (L0 + 6.289*Math.sin(M)) * Math.PI/180;
-    var lat2= 5.128*Math.sin(F);
-    var dec= Math.asin(Math.sin(lat2*Math.PI/180)*Math.cos(lon) +
-              Math.cos(lat2*Math.PI/180)*Math.sin(lon)*Math.sin(23.439*Math.PI/180)) * 180/Math.PI;
-    var cosH2 = (Math.sin(-0.0145)-Math.sin(lat*Math.PI/180)*Math.sin(dec*Math.PI/180)) /
-                (Math.cos(lat*Math.PI/180)*Math.cos(dec*Math.PI/180));
-    if(Math.abs(cosH2)>1) return null;
-    var H2 = Math.acos(cosH2)*180/Math.PI;
-    var noon2 = 12 - lng/15;
-    return { rise: noon2-H2/15, set: noon2+H2/15 };
-  }
+  // Obliquité + déclinaison
+  var eps = 23.439 * Math.PI/180;
+  var dec = Math.asin(Math.sin(eps)*Math.sin(lam));
 
-  var age = moonPhase(now);
-  var illum = Math.round(50*(1-Math.cos(2*Math.PI*age/29.53)))+1;
-  var phases = ['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'];
-  var phaseIdx = Math.round(age/29.53*8)%8;
-  var phaseNames = ['Nouvelle lune','Premier croissant','Premier quartier','Gibbeuse croissante',
-                    'Pleine lune','Gibbeuse décroissante','Dernier quartier','Dernier croissant'];
-  T('moonPhaseIc', phases[phaseIdx]);
-  T('moonPhaseName', phaseNames[phaseIdx]);
-  T('moonIllum', 'Illumination '+illum+'%');
-  T('moonAge', Math.round(age)+' j depuis NL');
+  // Ascension droite
+  var RA  = Math.atan2(Math.cos(eps)*Math.sin(lam), Math.cos(lam)) * 180/Math.PI;
 
-  var moon = moonRiseSet(now, LAT, LON);
-  if(moon){
-    T('moonRise', hoursToHHMM(moon.rise));
-    T('moonSet',  hoursToHHMM(moon.set));
-  } else {
-    T('moonRise','Var.'); T('moonSet','Var.');
-  }
+  // Equation du temps (minutes)
+  var EoT = 4*(L - RA);
+  if(EoT >  16) EoT -= 1440;
+  if(EoT < -16) EoT += 1440;
+
+  // Midi solaire en heures UTC
+  var solarNoon_UTC = 12 - lng/15 - EoT/60;
+
+  // Angle horaire au lever (élévation = -0.833°)
+  var cosH = (Math.sin(-0.833*Math.PI/180) - Math.sin(lat*Math.PI/180)*Math.sin(dec)) /
+             (Math.cos(lat*Math.PI/180)*Math.cos(dec));
+  cosH = Math.max(-1, Math.min(1, cosH)); // clamp pour éviter NaN
+  var H = Math.acos(cosH) * 180/Math.PI / 15; // heures
+
+  var rise_utc = solarNoon_UTC - H;
+  var set_utc  = solarNoon_UTC + H;
+
+  // Conversion en heure locale
+  var rise_loc = rise_utc + tzOff;
+  var set_loc  = set_utc  + tzOff;
+
+  T('sunRise', fmt(rise_loc));
+  T('sunSet',  fmt(set_loc));
+
+  // Azimut (formule correcte)
+  var latR = lat * Math.PI/180;
+  var cosAz = (Math.sin(dec) - Math.sin(latR)*Math.sin(-0.833*Math.PI/180)) /
+              (Math.cos(latR)*Math.cos(-0.833*Math.PI/180));
+  cosAz = Math.max(-1, Math.min(1, cosAz));
+  var azDeg = Math.round(Math.acos(cosAz)*180/Math.PI);
+  T('sunRiseAz', 'Az. '+azDeg+'° E');
+  T('sunSetAz',  'Az. '+(360-azDeg)+'° O');
+
+  // Durée du jour
+  var dur = set_loc - rise_loc;
+  if(dur < 0) dur += 24;
+  T('dayLength', Math.floor(dur)+'h'+Math.round((dur%1)*60).toString().padStart(2,'0'));
+
+  // Golden hour (1h après lever, 1h avant coucher)
+  T('goldenMorn', fmt(rise_loc)+' → '+fmt(rise_loc+1));
+  T('goldenEve',  fmt(set_loc-1)+' → '+fmt(set_loc));
+
+  // ── LUNE — phase ──
+  var lunarAge = ((JD - 2451550.1) % 29.53058867 + 29.53058867) % 29.53058867;
+  var illum    = Math.round(50*(1-Math.cos(2*Math.PI*lunarAge/29.53)));
+  var phaseIdx = Math.round(lunarAge/29.53*8) % 8;
+  var phases   = ['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'];
+  var phaseNames=['Nouvelle lune','Premier croissant','Premier quartier','Gibbeuse croissante',
+                  'Pleine lune','Gibbeuse décroissante','Dernier quartier','Dernier croissant'];
+  T('moonPhaseIc',  phases[phaseIdx]);
+  T('moonPhaseName',phaseNames[phaseIdx]);
+  T('moonIllum',    'Illumination '+illum+'%');
+  T('moonAge',      Math.round(lunarAge)+' j depuis NL');
+
+  // ── LUNE — lever/coucher (approximation) ──
+  var moonLon = ((218.316 + 13.176396*n) % 360 + 360) % 360;
+  var moonM   = ((134.963 + 13.064993*n) % 360 + 360) % 360 * Math.PI/180;
+  var moonF   = ((93.272  + 13.229350*n) % 360 + 360) % 360 * Math.PI/180;
+  var moonLam = (moonLon + 6.289*Math.sin(moonM)) * Math.PI/180;
+  var moonB   = 5.128*Math.sin(moonF) * Math.PI/180;
+  var moonDec = Math.asin(Math.sin(moonB)*Math.cos(moonLam) +
+                Math.cos(moonB)*Math.sin(moonLam)*Math.sin(eps));
+
+  var cosMH = (Math.sin(-0.833*Math.PI/180) - Math.sin(latR)*Math.sin(moonDec)) /
+              (Math.cos(latR)*Math.cos(moonDec));
+  cosMH = Math.max(-1, Math.min(1, cosMH));
+  var MH = Math.acos(cosMH)*180/Math.PI/15;
+  var moonNoon = 12 - lng/15;
+  T('moonRise', fmt(moonNoon - MH + tzOff));
+  T('moonSet',  fmt(moonNoon + MH + tzOff));
 }
 
 /* ════ STORMGLASS ════ */
