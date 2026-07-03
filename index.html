@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  
   <title>⚓ Marannah · Station Météo</title>
   <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Share+Tech+Mono&family=Barlow+Condensed:wght@300;400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -188,6 +187,10 @@
     @media(max-width:500px){.cgrid,.vrm-grid,.sg-grid,.swell-grid{grid-template-columns:repeat(2,1fr)}}
     .leaflet-control-attribution{background:rgba(4,10,18,.9)!important;color:var(--muted)!important;font-size:9px!important}
     .leaflet-control-zoom a{background:var(--p1)!important;color:var(--cyan)!important;border-color:var(--bd)!important}
+    .leaflet-tooltip-dark{background:rgba(4,10,18,.92);border:1px solid var(--bd);color:var(--white);font-family:'Share Tech Mono',monospace;font-size:11px;font-weight:600;padding:4px 8px;box-shadow:0 2px 8px rgba(0,0,0,.6)}
+    .leaflet-tooltip-dark::before{border-top-color:var(--bd)}
+    .leaflet-control-layers{background:rgba(4,10,18,.92)!important;border:1px solid var(--bd)!important;color:var(--text)!important;font-family:'Barlow Condensed',sans-serif!important;font-size:13px!important}
+    .leaflet-control-layers label{color:var(--text)!important}
   </style>
 </head>
 <body>
@@ -564,17 +567,54 @@ function useFallback(){
 /* ════ CARTE ════ */
 function initBoatMap(){
   if(!LAT||BMAP)return;
-  BMAP=L.map('boatMap',{center:[LAT,LON],zoom:13});
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png',{attribution:'© CARTO',maxZoom:18}).addTo(BMAP);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png',{attribution:'',maxZoom:18,zIndex:500}).addTo(BMAP);
+  BMAP=L.map('boatMap',{center:[LAT,LON],zoom:16});
+
+  // Couche satellite Esri (gratuite, haute résolution)
+  var satellite = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+    {attribution:'© Esri Imagery',maxZoom:19}
+  );
+
+  // Couche labels par-dessus le satellite
+  var labels = L.tileLayer(
+    'https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+    {attribution:'',maxZoom:19,zIndex:10,opacity:.8}
+  );
+
+  // Couche sombre alternative
+  var dark = L.tileLayer(
+    'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+    {attribution:'© CARTO',maxZoom:18}
+  );
+
+  satellite.addTo(BMAP);
+  labels.addTo(BMAP);
+
+  // Sélecteur de couche
+  L.control.layers({
+    '🛰 Satellite': satellite,
+    '🌑 Nuit': dark
+  },{
+    '🏷 Labels': labels
+  },{position:'topright'}).addTo(BMAP);
 }
 function updateBoatMap(lat,lon){
   if(!BMAP){initBoatMap();if(!BMAP)return;}
   if(bMarker)BMAP.removeLayer(bMarker);
   var color=gpsSource==='sk'?'#00e5ff':gpsSource==='vrm'?'#ffbe33':'#5a85a8';
-  var icon=L.divIcon({html:'<div style="width:14px;height:14px;background:'+color+';border:2px solid #fff;border-radius:50%;box-shadow:0 0 12px '+color+'"></div>',className:'',iconSize:[14,14],iconAnchor:[7,7]});
-  bMarker=L.marker([lat,lon],{icon:icon}).bindTooltip('⚓ Marannah').addTo(BMAP);
-  if(!anchorLat)BMAP.setView([lat,lon],BMAP.getZoom()||13);
+  // Marqueur plus visible sur satellite : cercle blanc + couleur intérieure
+  var icon=L.divIcon({
+    html:'<div style="width:18px;height:18px;background:'+color+';border:3px solid #fff;border-radius:50%;box-shadow:0 0 0 2px rgba(0,0,0,.5),0 0 16px '+color+'"></div>',
+    className:'',iconSize:[18,18],iconAnchor:[9,9]
+  });
+  bMarker=L.marker([lat,lon],{icon:icon})
+    .bindTooltip('⚓ Marannah',{
+      permanent:false,
+      className:'leaflet-tooltip-dark',
+      direction:'top',offset:[0,-12]
+    })
+    .addTo(BMAP);
+  if(!anchorLat)BMAP.setView([lat,lon],BMAP.getZoom()||16);
 }
 
 /* ════ MOUILLAGE ════ */
@@ -606,8 +646,22 @@ function activateAnchorUI(lat,lon,r){
   document.getElementById('anchorRadius').value=r;
   if(anchorCircle&&BMAP)BMAP.removeLayer(anchorCircle);
   if(BMAP){
-    anchorCircle=L.circle([anchorLat,anchorLon],{radius:r,color:'#ffbe33',fillColor:'#ffbe33',fillOpacity:.08,weight:1.5,dashArray:'6 4'}).addTo(BMAP);
-    BMAP.setView([anchorLat,anchorLon],15);
+    anchorCircle=L.circle([anchorLat,anchorLon],{
+      radius:r,
+      color:'#ffbe33',
+      fillColor:'#ffbe33',
+      fillOpacity:.12,
+      weight:2.5,
+      dashArray:'8 5',
+      opacity:.9
+    }).addTo(BMAP);
+    // Marqueur ancre au centre
+    var anchorIcon=L.divIcon({
+      html:'<div style="font-size:20px;filter:drop-shadow(0 0 4px rgba(0,0,0,.8))">⚓</div>',
+      className:'',iconSize:[24,24],iconAnchor:[12,12]
+    });
+    L.marker([anchorLat,anchorLon],{icon:anchorIcon,zIndexOffset:-100}).addTo(BMAP);
+    BMAP.setView([anchorLat,anchorLon],17);
   }
   T('anchorDist','⚓ Ancre mouillée · rayon '+r+'m');
 }
