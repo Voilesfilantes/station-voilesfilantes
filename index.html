@@ -292,14 +292,29 @@
           </div>
           <div class="gps-card" style="border-color:rgba(255,190,51,.25)">
             <div class="gps-lbl">⚓ Alarme mouillage</div>
-            <div style="display:flex;align-items:center;gap:10px;margin-top:6px;flex-wrap:wrap">
-              <button class="btn-sm" onclick="dropAnchor()" id="btnAnchor" style="border-color:var(--gold);color:var(--gold)">Mouiller ici</button>
-              <button class="btn-sm" onclick="clearAnchor()" style="display:none;border-color:var(--red);color:var(--red)" id="btnClearAnchor">Lever l'ancre</button>
+            <!-- Ligne 1 : boutons mouillage + rayon -->
+            <div style="display:flex;align-items:center;gap:10px;margin-top:8px;flex-wrap:wrap">
+              <button class="btn-sm" onclick="dropAnchor()" id="btnAnchor" style="border-color:var(--gold);color:var(--gold)">⚓ Mouiller ici</button>
+              <button class="btn-sm" onclick="clearAnchor()" style="display:none;border-color:var(--red);color:var(--red)" id="btnClearAnchor">✕ Lever l'ancre</button>
               <span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted)">
                 Rayon : <input type="number" id="anchorRadius" value="50" min="10" max="500" step="10"
                   style="width:55px;background:rgba(0,0,0,.4);border:1px solid var(--bd);color:var(--white);padding:3px 7px;font-family:'Share Tech Mono',monospace;font-size:11px;border-radius:3px;outline:none"> m
               </span>
-              <span style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted)" id="anchorDist">—</span>
+            </div>
+            <!-- Ligne 2 : distance + statut -->
+            <div style="margin-top:8px;font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted)" id="anchorDist">—</div>
+            <!-- Ligne 3 : boutons buzzer -->
+            <div style="display:flex;align-items:center;gap:8px;margin-top:10px;padding-top:10px;border-top:1px solid var(--bd);flex-wrap:wrap">
+              <span style="font-size:11px;color:var(--muted);font-family:'Share Tech Mono',monospace">Buzzer :</span>
+              <button class="btn-sm" onclick="testBuzzer()"
+                style="border-color:rgba(0,229,255,.4);color:var(--cyan);padding:5px 12px">
+                🔔 Test buzzer
+              </button>
+              <button class="btn-sm" onclick="stopBuzzer()"
+                style="border-color:rgba(255,59,96,.35);color:var(--red);padding:5px 12px">
+                🔕 Stop buzzer
+              </button>
+              <span style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)" id="buzzerStatus">—</span>
             </div>
           </div>
         </div>
@@ -605,14 +620,45 @@ function deactivateAnchorUI(){
   T('anchorDist','—');
   document.getElementById('anchorAlert').style.display='none';
 }
+
+/* ════ BUZZER — commandes via MQTT → Node-RED ════ */
+function testBuzzer(){
+  if(!mqttClient){T('buzzerStatus','⚠ MQTT non connecté');return;}
+  mqttClient.publish('voilesfilantes/ancre/buzzer', JSON.stringify({cmd:'test'}));
+  T('buzzerStatus','Test envoyé…');
+  setTimeout(function(){T('buzzerStatus','—');},3000);
+}
+
+function stopBuzzer(){
+  if(!mqttClient){T('buzzerStatus','⚠ MQTT non connecté');return;}
+  mqttClient.publish('voilesfilantes/ancre/buzzer', JSON.stringify({cmd:'stop'}));
+  T('buzzerStatus','Stop envoyé');
+  setTimeout(function(){T('buzzerStatus','—');},3000);
+}
+var anchorAlarmActive = false;
 function checkAnchor(lat,lon){
   if(!anchorLat)return;
   var r=parseInt(document.getElementById('anchorRadius').value)||50;
   var d=haversineM(anchorLat,anchorLon,lat,lon);
-  T('anchorDist','Distance ancre : '+Math.round(d)+'m / '+r+'m');
+  T('anchorDist','📍 Distance ancre : '+Math.round(d)+'m / '+r+'m');
   var a=document.getElementById('anchorAlert');
-  if(d>r){a.style.display='block';a.textContent='⚓ ALERTE MOUILLAGE — Bateau à '+Math.round(d)+'m ! (rayon '+r+'m)';}
-  else a.style.display='none';
+  if(d>r){
+    a.style.display='block';
+    a.textContent='⚓ ALERTE MOUILLAGE — Bateau à '+Math.round(d)+'m de l\'ancre ! (rayon '+r+'m)';
+    // Notifier Node-RED si l'alarme n'était pas déjà active
+    if(!anchorAlarmActive && mqttClient){
+      anchorAlarmActive=true;
+      mqttClient.publish('voilesfilantes/ancre/buzzer',
+        JSON.stringify({cmd:'alarme', dist:Math.round(d), radius:r}));
+    }
+  } else {
+    a.style.display='none';
+    if(anchorAlarmActive && mqttClient){
+      anchorAlarmActive=false;
+      mqttClient.publish('voilesfilantes/ancre/buzzer',
+        JSON.stringify({cmd:'stop'}));
+    }
+  }
 }
 function haversineM(la1,lo1,la2,lo2){var R=6371000,dL=(la2-la1)*Math.PI/180,dO=(lo2-lo1)*Math.PI/180;var a=Math.sin(dL/2)**2+Math.cos(la1*Math.PI/180)*Math.cos(la2*Math.PI/180)*Math.sin(dO/2)**2;return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));}
 
