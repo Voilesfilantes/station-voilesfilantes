@@ -191,6 +191,27 @@
     .leaflet-tooltip-dark::before{border-top-color:var(--bd)}
     .leaflet-control-layers{background:rgba(4,10,18,.92)!important;border:1px solid var(--bd)!important;color:var(--text)!important;font-family:'Barlow Condensed',sans-serif!important;font-size:13px!important}
     .leaflet-control-layers label{color:var(--text)!important}
+
+    /* ══ TENDANCE BARO ══ */
+    .baro-panel{background:rgba(0,0,0,.25);border:1px solid var(--bd);border-radius:5px;padding:14px;margin-top:14px}
+    .baro-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px}
+    .baro-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.12em;font-weight:600}
+    .baro-trend{font-family:'Orbitron',monospace;font-size:13px;font-weight:700;padding:3px 10px;border-radius:3px}
+    .baro-stable{color:var(--green);background:rgba(0,255,153,.08);border:1px solid rgba(0,255,153,.25)}
+    .baro-rise{color:var(--cyan);background:rgba(0,229,255,.08);border:1px solid rgba(0,229,255,.25)}
+    .baro-fall{color:var(--yellow);background:rgba(255,224,51,.08);border:1px solid rgba(255,224,51,.25)}
+    .baro-fall-fast{color:var(--red);background:rgba(255,59,96,.1);border:1px solid rgba(255,59,96,.35);animation:blink .8s infinite}
+    #baroChart{width:100%;height:80px}
+
+    /* ══ SOLEIL / LUNE ══ */
+    .astro-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+    .astro-card{background:rgba(0,0,0,.3);border:1px solid var(--bd);border-radius:5px;padding:12px 10px;text-align:center}
+    .astro-ic{font-size:22px;margin-bottom:5px}
+    .astro-lb{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:600;margin-bottom:4px}
+    .astro-vl{font-family:'Orbitron',monospace;font-size:20px;font-weight:700;color:var(--yellow);line-height:1}
+    .astro-sub{font-size:10px;color:var(--muted);margin-top:3px;font-family:'Share Tech Mono',monospace}
+    .moon-phase{font-size:28px;margin-bottom:4px}
+    .golden-hour{background:rgba(255,190,51,.06);border-color:rgba(255,190,51,.25)}
   </style>
 </head>
 <body>
@@ -422,6 +443,105 @@
     </div>
   </div>
 
+  <!-- ══ TENDANCE BAROMÉTRIQUE ══ -->
+  <div>
+    <div class="sh">📉 Tendance barométrique · 6 heures</div>
+    <div class="panel" style="padding:16px">
+      <div class="baro-header">
+        <div>
+          <div class="baro-title">Pression atmosphérique</div>
+          <div style="font-family:'Orbitron',monospace;font-size:28px;font-weight:700;color:var(--white);margin-top:4px">
+            <span id="baroNow">—</span> <span style="font-size:13px;color:var(--muted)">hPa</span>
+          </div>
+        </div>
+        <div style="text-align:right">
+          <div class="baro-title" style="margin-bottom:6px">Tendance</div>
+          <div class="baro-trend baro-stable" id="baroTrend">—</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted);margin-top:5px" id="baroChange">—</div>
+        </div>
+      </div>
+      <div class="baro-panel">
+        <canvas id="baroChart"></canvas>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px">
+        <div style="text-align:center">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:600">Min 6h</div>
+          <div style="font-family:'Orbitron',monospace;font-size:18px;color:var(--blue);margin-top:3px" id="baroMin">—</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:600">Max 6h</div>
+          <div style="font-family:'Orbitron',monospace;font-size:18px;color:var(--cyan);margin-top:3px" id="baroMax">—</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:600">Variation/h</div>
+          <div style="font-family:'Orbitron',monospace;font-size:18px;color:var(--text);margin-top:3px" id="baroRate">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ══ SOLEIL & LUNE ══ -->
+  <div>
+    <div class="sh">🌅 Soleil &amp; Lune · Ephémérides</div>
+    <div class="panel" style="padding:16px">
+      <!-- Heure actuelle + date -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:8px">
+        <div>
+          <div style="font-family:'Orbitron',monospace;font-size:32px;font-weight:900;color:var(--white)" id="clockTime">—</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--muted);margin-top:2px" id="clockDate">—</div>
+        </div>
+        <div style="text-align:right">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:600">Phase lunaire</div>
+          <div class="moon-phase" id="moonPhaseIc">🌑</div>
+          <div style="font-family:'Share Tech Mono',monospace;font-size:10px;color:var(--muted)" id="moonPhaseName">—</div>
+        </div>
+      </div>
+
+      <div class="astro-grid">
+        <div class="astro-card golden-hour">
+          <div class="astro-ic">🌅</div>
+          <div class="astro-lb">Lever soleil</div>
+          <div class="astro-vl" id="sunRise">—</div>
+          <div class="astro-sub" id="sunRiseAz">—</div>
+        </div>
+        <div class="astro-card golden-hour">
+          <div class="astro-ic">🌄</div>
+          <div class="astro-lb">Coucher soleil</div>
+          <div class="astro-vl" id="sunSet">—</div>
+          <div class="astro-sub" id="sunSetAz">—</div>
+        </div>
+        <div class="astro-card">
+          <div class="astro-ic">🌙</div>
+          <div class="astro-lb">Lever lune</div>
+          <div class="astro-vl" id="moonRise">—</div>
+          <div class="astro-sub" id="moonIllum">—</div>
+        </div>
+        <div class="astro-card">
+          <div class="astro-ic">🌛</div>
+          <div class="astro-lb">Coucher lune</div>
+          <div class="astro-vl" id="moonSet">—</div>
+          <div class="astro-sub" id="moonAge">—</div>
+        </div>
+      </div>
+
+      <!-- Durée du jour + golden hour -->
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-top:12px">
+        <div style="background:rgba(255,190,51,.06);border:1px solid rgba(255,190,51,.2);border-radius:5px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:600">Durée du jour</div>
+          <div style="font-family:'Orbitron',monospace;font-size:18px;color:var(--gold);margin-top:3px" id="dayLength">—</div>
+        </div>
+        <div style="background:rgba(255,130,0,.06);border:1px solid rgba(255,130,0,.2);border-radius:5px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:600">Golden hour matin</div>
+          <div style="font-family:'Orbitron',monospace;font-size:14px;color:var(--orange);margin-top:3px" id="goldenMorn">—</div>
+        </div>
+        <div style="background:rgba(255,130,0,.06);border:1px solid rgba(255,130,0,.2);border-radius:5px;padding:10px;text-align:center">
+          <div style="font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;font-weight:600">Golden hour soir</div>
+          <div style="font-family:'Orbitron',monospace;font-size:14px;color:var(--orange);margin-top:3px" id="goldenEve">—</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ══ STORMGLASS ══ -->
   <div>
     <div class="sh">🌊 État de la mer · StormGlass</div>
@@ -532,7 +652,7 @@ function updateGPS(lat,lon,sog,cog,src){
 }
 
 function afterFirstGPS(){
-  loadMeteo(); loadStormGlass(false); loadWindy();
+  loadMeteo(); loadStormGlass(false); loadWindy(); initAstro();
   var t=localStorage.getItem('vrm_token')||CFG.VRM_TOKEN;
   if(t&&t.length>5){fetchVRM();if(vrmTimer)clearInterval(vrmTimer);vrmTimer=setInterval(fetchVRM,60000);}
   document.getElementById('dotMain').className='dot live';
@@ -914,6 +1034,215 @@ function loadMeteo(){
     document.getElementById('meteoDot').className='bdot live';
     T('meteoStatus','OK · MAJ '+new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}));
   }).catch(function(e){document.getElementById('meteoDot').className='bdot err';T('meteoStatus','⚠ '+e.message);});
+
+  // Tendance barométrique — 6h d'historique + 1h future
+  fetch('https://api.open-meteo.com/v1/forecast?latitude='+LAT+'&longitude='+LON
+    +'&hourly=surface_pressure&timezone=auto&past_hours=6&forecast_hours=1')
+  .then(function(r){return r.json();})
+  .then(function(j){renderBaro(j.hourly);})
+  .catch(function(){});
+}
+
+/* ════ TENDANCE BAROMÉTRIQUE ════ */
+function renderBaro(hourly){
+  if(!hourly||!hourly.time)return;
+  var times=hourly.time, pvals=hourly.surface_pressure;
+  // Filtrer les valeurs nulles
+  var pts=[];
+  for(var i=0;i<times.length;i++){
+    if(pvals[i]!=null) pts.push({t:new Date(times[i]),p:pvals[i]});
+  }
+  if(pts.length<2)return;
+
+  var last=pts[pts.length-1].p;
+  var first=pts[0].p;
+  var diff=last-first; // variation sur 6h
+  var rate=diff/pts.length; // hPa/h approximatif
+
+  T('baroNow',Math.round(last));
+  T('baroMin',Math.round(Math.min.apply(null,pts.map(function(p){return p.p;}))));
+  T('baroMax',Math.round(Math.max.apply(null,pts.map(function(p){return p.p;}))));
+  T('baroRate',(rate>0?'+':'')+rate.toFixed(1)+' hPa/h');
+  T('baroChange',(diff>0?'↑ +':diff<0?'↓ ':'')+Math.abs(diff).toFixed(1)+' hPa en 6h');
+
+  // Tendance
+  var trendEl=document.getElementById('baroTrend');
+  if(Math.abs(rate)<0.5){
+    trendEl.textContent='⟷ Stable';trendEl.className='baro-trend baro-stable';
+  } else if(rate>0){
+    trendEl.textContent='↑ Hausse';trendEl.className='baro-trend baro-rise';
+  } else if(rate>-1){
+    trendEl.textContent='↓ Baisse';trendEl.className='baro-trend baro-fall';
+  } else {
+    trendEl.textContent='⚠ Baisse rapide';trendEl.className='baro-trend baro-fall-fast';
+  }
+
+  // Dessin du graphe canvas
+  var cv=document.getElementById('baroChart');
+  if(!cv)return;
+  var dpr=window.devicePixelRatio||1;
+  cv.width=cv.offsetWidth*dpr||600; cv.height=80*dpr;
+  cv.style.width='100%'; cv.style.height='80px';
+  var ctx=cv.getContext('2d');
+  ctx.scale(dpr,dpr);
+  var W=cv.offsetWidth||600, H=80;
+  ctx.clearRect(0,0,W,H);
+
+  var pmin=Math.min.apply(null,pts.map(function(p){return p.p;}))-2;
+  var pmax=Math.max.apply(null,pts.map(function(p){return p.p;}))+2;
+  var prange=pmax-pmin||1;
+
+  function px(i){return i*(W-1)/(pts.length-1);}
+  function py(p){return H-4-((p-pmin)/prange)*(H-8);}
+
+  // Zone sous la courbe
+  var grad=ctx.createLinearGradient(0,0,0,H);
+  grad.addColorStop(0,'rgba(77,184,255,.25)');
+  grad.addColorStop(1,'rgba(77,184,255,.01)');
+  ctx.beginPath();ctx.moveTo(px(0),py(pts[0].p));
+  for(var i=1;i<pts.length;i++) ctx.lineTo(px(i),py(pts[i].p));
+  ctx.lineTo(px(pts.length-1),H);ctx.lineTo(0,H);ctx.closePath();
+  ctx.fillStyle=grad;ctx.fill();
+
+  // Ligne principale
+  ctx.beginPath();ctx.moveTo(px(0),py(pts[0].p));
+  for(var i=1;i<pts.length;i++) ctx.lineTo(px(i),py(pts[i].p));
+  var lineColor=Math.abs(rate)<0.5?'#00ff99':rate>0?'#00e5ff':rate>-1?'#ffe033':'#ff3b60';
+  ctx.strokeStyle=lineColor;ctx.lineWidth=2.5;ctx.lineJoin='round';ctx.stroke();
+
+  // Labels heures
+  ctx.font='9px "Share Tech Mono",monospace';ctx.fillStyle='#5a85a8';ctx.textAlign='center';
+  pts.forEach(function(p,i){
+    if(i%2===0){
+      ctx.fillText(p.t.getHours().toString().padStart(2,'0')+'h',px(i),H-1);
+    }
+  });
+
+  // Ligne actuelle (dernière valeur)
+  var curX=px(pts.length-1);
+  ctx.beginPath();ctx.moveTo(curX,0);ctx.lineTo(curX,H-12);
+  ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=1;ctx.setLineDash([3,3]);ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+/* ════ SOLEIL & LUNE ════ */
+// Calculs astronomiques purs — pas d'API
+
+function initAstro(){
+  calcAstro();
+  startClock();
+  setInterval(calcAstro, 60000); // recalcul chaque minute
+}
+
+function startClock(){
+  function tick(){
+    var now=new Date();
+    T('clockTime', now.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit',second:'2-digit'}));
+    T('clockDate', now.toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'}));
+  }
+  tick(); setInterval(tick, 1000);
+}
+
+function calcAstro(){
+  if(!LAT||!LON) return;
+  var now = new Date();
+
+  // ── Calcul lever/coucher soleil ──
+  function sunTimes(date, lat, lng){
+    var JD = date.getTime()/86400000 + 2440587.5;
+    var n  = JD - 2451545.0;
+    var L  = (280.46 + 0.9856474*n) % 360;
+    var g  = (357.528 + 0.9856003*n) * Math.PI/180;
+    var lam= (L + 1.915*Math.sin(g) + 0.020*Math.sin(2*g)) * Math.PI/180;
+    var eps= 23.439 * Math.PI/180;
+    var dec= Math.asin(Math.sin(eps)*Math.sin(lam));
+    var cosH= (Math.sin(-0.0145) - Math.sin(lat*Math.PI/180)*Math.sin(dec)) /
+              (Math.cos(lat*Math.PI/180)*Math.cos(dec));
+    if(Math.abs(cosH)>1) return null; // Soleil jamais couché/levé
+    var H  = Math.acos(cosH) * 180/Math.PI;
+    var noon= 12 - lng/15 - (L - n*0.9856474 - 357.528 - 102.9372)*Math.PI/180*12/Math.PI;
+    var rise= noon - H/15;
+    var set = noon + H/15;
+    // Azimut lever/coucher
+    var azRise = Math.acos((Math.sin(dec)-Math.sin(lat*Math.PI/180)*Math.cos(H*Math.PI/180)) /
+                            (Math.cos(lat*Math.PI/180)*Math.sin(H*Math.PI/180)))*180/Math.PI;
+    return {
+      rise: rise,
+      set:  set,
+      noon: noon,
+      azRise: Math.round(azRise),
+      azSet:  Math.round(360-azRise)
+    };
+  }
+
+  function hoursToHHMM(h){
+    if(!h&&h!==0)return'—';
+    // Ajustement timezone locale
+    var utcH = ((h % 24) + 24) % 24;
+    var local = new Date(); local.setUTCHours(0,0,0,0);
+    local = new Date(local.getTime() + utcH*3600000);
+    return local.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+  }
+
+  var sun = sunTimes(now, LAT, LON);
+  if(sun){
+    T('sunRise',  hoursToHHMM(sun.rise));
+    T('sunSet',   hoursToHHMM(sun.set));
+    T('sunRiseAz','Az. '+sun.azRise+'°');
+    T('sunSetAz', 'Az. '+sun.azSet+'°');
+    // Durée du jour
+    var dur = sun.set - sun.rise;
+    T('dayLength', Math.floor(dur)+'h'+Math.round((dur%1)*60).toString().padStart(2,'0'));
+    // Golden hour : 1h après lever, 1h avant coucher
+    T('goldenMorn', hoursToHHMM(sun.rise)+' → '+hoursToHHMM(sun.rise+1));
+    T('goldenEve',  hoursToHHMM(sun.set-1)+' → '+hoursToHHMM(sun.set));
+  }
+
+  // ── Calcul phase lunaire ──
+  function moonPhase(date){
+    var JD = date.getTime()/86400000 + 2440587.5;
+    var age = (JD - 2451550.1) % 29.53058867;
+    if(age < 0) age += 29.53058867;
+    return age; // jours depuis nouvelle lune
+  }
+
+  function moonRiseSet(date, lat, lng){
+    // Approximation simple lever/coucher lune
+    var JD = date.getTime()/86400000 + 2440587.5;
+    var T  = (JD - 2451545.0)/36525;
+    var L0 = 218.316 + 13.176396*JD*1 % 360;
+    var M  = (134.963 + 13.064993*JD) % 360 * Math.PI/180;
+    var F  = (93.272  + 13.229350*JD) % 360 * Math.PI/180;
+    var lon= (L0 + 6.289*Math.sin(M)) * Math.PI/180;
+    var lat2= 5.128*Math.sin(F);
+    var dec= Math.asin(Math.sin(lat2*Math.PI/180)*Math.cos(lon) +
+              Math.cos(lat2*Math.PI/180)*Math.sin(lon)*Math.sin(23.439*Math.PI/180)) * 180/Math.PI;
+    var cosH2 = (Math.sin(-0.0145)-Math.sin(lat*Math.PI/180)*Math.sin(dec*Math.PI/180)) /
+                (Math.cos(lat*Math.PI/180)*Math.cos(dec*Math.PI/180));
+    if(Math.abs(cosH2)>1) return null;
+    var H2 = Math.acos(cosH2)*180/Math.PI;
+    var noon2 = 12 - lng/15;
+    return { rise: noon2-H2/15, set: noon2+H2/15 };
+  }
+
+  var age = moonPhase(now);
+  var illum = Math.round(50*(1-Math.cos(2*Math.PI*age/29.53)))+1;
+  var phases = ['🌑','🌒','🌓','🌔','🌕','🌖','🌗','🌘'];
+  var phaseIdx = Math.round(age/29.53*8)%8;
+  var phaseNames = ['Nouvelle lune','Premier croissant','Premier quartier','Gibbeuse croissante',
+                    'Pleine lune','Gibbeuse décroissante','Dernier quartier','Dernier croissant'];
+  T('moonPhaseIc', phases[phaseIdx]);
+  T('moonPhaseName', phaseNames[phaseIdx]);
+  T('moonIllum', 'Illumination '+illum+'%');
+  T('moonAge', Math.round(age)+' j depuis NL');
+
+  var moon = moonRiseSet(now, LAT, LON);
+  if(moon){
+    T('moonRise', hoursToHHMM(moon.rise));
+    T('moonSet',  hoursToHHMM(moon.set));
+  } else {
+    T('moonRise','Var.'); T('moonSet','Var.');
+  }
 }
 
 /* ════ STORMGLASS ════ */
