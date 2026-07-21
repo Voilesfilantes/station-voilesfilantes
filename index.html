@@ -678,10 +678,10 @@ function getGPSFromVRM(token,site){
     else if(gpsSource==='none')tryBrowserGPS();
   }).catch(function(){if(gpsSource==='none')tryBrowserGPS();});
 }
-function tryBrowserGPS(){
+function tryBrowserGPS(){// GPS téléphone désactivé — bateau uniquement
   if(gpsSource==='sk'||gpsSource==='vrm')return;
-  if(!navigator.geolocation){useFallback();return;}
-  navigator.geolocation.getCurrentPosition(function(p){updateGPS(p.coords.latitude,p.coords.longitude,null,null,'browser');},function(){useFallback();},{timeout:6000});
+  useFallback();return;// Toujours fallback Bonifacio
+  // GPS navigateur désactivé
 }
 function useFallback(){
   if(gpsSource==='sk'||gpsSource==='vrm')return;
@@ -1328,7 +1328,7 @@ function drawC(id,dir,spd,sz){
   [{l:'N',a:0,c:'#ff3b60'},{l:'E',a:90,c:'#5a85a8'},{l:'S',a:180,c:'#5a85a8'},{l:'O',a:270,c:'#5a85a8'}]
   .forEach(function(p){var r=(p.a-90)*Math.PI/180;ctx.fillStyle=p.c;ctx.fillText(p.l,cx+(R-16)*Math.cos(r),cy+(R-16)*Math.sin(r));});
   var bf=beaufort(spd),col=bf>=9?'#ff3b60':bf>=7?'#ff8c42':bf>=5?'#ffe033':'#00e5ff';
-  var AL=R*0.6;ctx.save();ctx.translate(cx,cy);ctx.rotate(((dir+180)%360)*Math.PI/180);
+  var AL=R*0.6;ctx.save();ctx.translate(cx,cy);ctx.rotate((dir%360)*Math.PI/180);
   ctx.shadowColor=col;ctx.shadowBlur=14;
   ctx.beginPath();ctx.moveTo(0,AL*.42);ctx.lineTo(0,-AL);ctx.strokeStyle=col;ctx.lineWidth=3;ctx.stroke();
   ctx.beginPath();ctx.moveTo(0,-AL);ctx.lineTo(-9,-AL+16);ctx.lineTo(9,-AL+16);ctx.closePath();ctx.fillStyle=col;ctx.fill();
